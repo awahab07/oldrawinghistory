@@ -19,9 +19,21 @@
 		<script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
 
         <script type="text/javascript">
-            require(["dojo/parser", "dijit/layout/ContentPane", "dijit/layout/BorderContainer", "demo/widget/MapWidget", "dojo/domReady!"], function(parser) {
-                parser.parse();
-            });
+            require(["dojo/parser",
+                    "dijit/layout/ContentPane",
+                    "dijit/layout/BorderContainer",
+                    "dijit/registry",
+                    "demo/widget/MapWidget",
+                    "dojo/domReady!"],
+                    function(parser, ContentPane, BorderContainer, registry, MapWidget) {
+
+                        parser.parse();
+
+                        // The Controller Code
+                        var mapWidget = registry.byId("mapWidgetId"),
+                            mapToolbarWidget = registry.byId("mapToolbarWidgetId");
+
+                    });
         </script>
 	</head>
 	
@@ -56,16 +68,13 @@
                             data-dojo-type="dijit/layout/ContentPane"
                             data-dojo-props="region: 'leading', splitter: false">
 
-                            <div data-dojo-attach-point="mapToolbar" data-dojo-type="dijit/Toolbar">
-                                <div data-dojo-type="dijit/form/Button"
-                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconCut', showLabel:false">Cut</div>
-                                <div data-dojo-type="dijit/form/Button" id="toolbar1.copy"
-                                data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconCopy', showLabel:false">Copy</div>
-                                <div data-dojo-type="dijit/form/Button" id="toolbar1.paste"
-                                data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconPaste', showLabel:false">Paste</div>
-                                
-                                <div data-dojo-type="dijit/form/ToggleButton" id="toolbar1.bold"
-                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconBold', showLabel:false">Bold</div>
+                            <div id="mapToolbarWidgetId" data-dojo-attach-point="mapToolbar" data-dojo-type="dijit/Toolbar">
+                                <div id="mapUndoButtonId" data-dojo-type="dijit/form/Button"
+                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconUndo', showLabel:false">Undo</div>
+
+                                <div id="mapRedoButtonId" data-dojo-type="dijit/form/Button"
+                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
+
                             </div>
 
                         </div>
@@ -75,7 +84,7 @@
                             data-dojo-props="region: 'center'">
 
                             <div id="mapWidgetId" data-dojo-type="demo/widget/MapWidget"
-                                data-dojo-props="imageUrl:'img/scenery.jpg', imageWidth:2560, imageHeight:1600, minZoom:0, maxZoom:10, zoomFactor:2, zoom:2"></div>
+                                data-dojo-props="imageUrl:'img/scenery-1920x1080.jpg', width:'800px', height:'500px', imageWidth:1920, imageHeight:1080, minZoom:0, maxZoom:10, zoomFactor:2, zoom:2"></div>
 
                         </div>
 
