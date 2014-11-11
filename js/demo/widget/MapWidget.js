@@ -211,6 +211,8 @@ define([
                 style: this.overlayStyle
             });
 
+            this.modifyInteraction.on("drawend", function(){console.log("drawend");}, this);
+
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({
                 code: 'pixel',
@@ -253,7 +255,7 @@ define([
                 target: this.mapDiv,
                 view: this.mapView
             });
-            widgetDebug = this;
+            widgetDebug = this; // For dev purposes only
         },
 
         startup: function() {
