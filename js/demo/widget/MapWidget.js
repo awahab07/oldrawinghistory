@@ -9,11 +9,12 @@ define([
     "dijit/registry",
     "dijit/Toolbar",
     "dijit/form/Button",
+    "dojo/store/Memory",
     "dijit/_WidgetBase",
     "dijit/_TemplatedMixin",
     "dijit/_WidgetsInTemplateMixin",
     "dojo/text!./templates/MapWidget.html"
-], function(declare, baseFx, lang, on, domStyle, aspect, registry,  Toolbar, Button,  _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
+], function(declare, baseFx, lang, on, domStyle, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
     return declare([_WidgetBase, _TemplatedMixin], {
  
         // Our template - important!
@@ -39,11 +40,17 @@ define([
         overlayStyle: null,
         selectInteraction: null,
         modifyInteraction: null,
+        geometryHistoryStore: null,
         testVectorLayer: null,
+
+        _featureGeometryChanged: null,
 
 
         postMixInProperties: function() {
             this.inherited(arguments);
+
+            // Setting up store for feature geometry changes i.e. for Undo/Redo functionality
+            this.geometryHistoryStore = new Memory();
 
             // Style function, source and vector layer
             var styleFunction = (function() {
@@ -131,10 +138,17 @@ define([
                     }
                 }));
 
+            // Vector Layer
             this.testVectorLayer = new ol.layer.Vector({
                 source: source,
                 style: styleFunction
             });
+
+            this._featureGeometryChanged = function(event) {
+                var currentTarget = event.currentTarget;
+                var target = event.target;
+                var debugIt = true;
+            }
 
             // Map OverlayStyle
             this.overlayStyle = (function() {
@@ -255,6 +269,21 @@ define([
                 target: this.mapDiv,
                 view: this.mapView
             });
+
+            //this.map.on("drawend", function(event){console.log(event.target);});
+            this.modifyInteraction.on("POINTERDRAG", function(event){console.log("modify", event);});
+
+            // Features geometry change event
+            this.testVectorLayer.getSource().forEachFeature(function(feature) {
+                feature.on("DRAGEND", function(event){
+                    var currentTarget = event.currentTarget;
+                    var target = event.target;
+                    console.log("currentTarget", currentTarget.getCoordinates());
+                    console.log("target", target.getCoordinates());
+                    var debugIt = true;
+                }, this);
+            });
+
             widgetDebug = this; // For dev purposes only
         },
 
