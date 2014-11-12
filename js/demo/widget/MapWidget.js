@@ -220,12 +220,20 @@ define([
                 style: this.overlayStyle
             });
 
-            this.modifyInteraction = new ol.interaction.Modify({
+            this.modifyInteraction = new ol.interaction.ModifyWithEvents({
                 features: this.selectInteraction.getFeatures(),
                 style: this.overlayStyle
             });
 
-            this.modifyInteraction.on("drawend", function(){console.log("drawend");}, this);
+            this.modifyInteraction.on("modifystart", function(){console.log("modifystart");}, this);
+            this.modifyInteraction.on("featureadd", function(evt){console.log("featureadd", evt.feature.getGeometry());}, this);
+            this.modifyInteraction.on("featureremove", function(evt){console.log("featureremove", evt.feature.getGeometry());}, this);
+
+            this.modifyInteraction.on("rbushinsert", function(evt){console.log("rbushinsert", evt);});
+            this.modifyInteraction.on("rbushload", function(evt){console.log("rbushload", evt);});
+            this.modifyInteraction.on("rbushremove", function(evt){console.log("rbushremove", evt);});
+            this.modifyInteraction.on("rbushupdate", function(evt){console.log("rbushupdate", evt);});
+            this.modifyInteraction.on("rbushclear", function(evt){console.log("rbushclear", evt);});
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({

@@ -95267,7 +95267,7 @@ ol.interaction.Modify.prototype.writeMultiPointGeometry_ =
  * @private
  */
 ol.interaction.Modify.prototype.writeLineStringGeometry_ =
-    function(feature, geometry) {
+    function(feature, geometry) {console.log(feature);
   var coordinates = geometry.getCoordinates();
   var i, ii, segment, segmentData;
   for (i = 0, ii = coordinates.length - 1; i < ii; ++i) {
