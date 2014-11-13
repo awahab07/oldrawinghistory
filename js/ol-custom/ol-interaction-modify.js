@@ -61,16 +61,15 @@ ol.ModifyEventType = {
  * @param {ol.ModifyEventType} type Type.
  * @param {ol.Feature} feature The feature drawn.
  */
-ol.ModifyEvent = function(type, feature) {
-
+ol.ModifyEvent = function(type, featureCollection) {
     goog.base(this, type);
 
     /**
-     * The feature being modified.
+     * Collection of features being modified.
      * @type {ol.Feature}
      * @api stable
      */
-    this.feature = feature;
+    this.featureCollection = featureCollection;
 };
 goog.inherits(ol.ModifyEvent, goog.events.Event);
 
@@ -92,7 +91,22 @@ ol.interaction.ModifyWithEvents = function(options) {
     // Overriding RBush with RBushWithEvents
     this.rBush_ = new ol.structs.RBushWithEvents();
 
-    this.featureBeingModified_ = null;
+    this.featuresBeingModified_ = null;
+
+    /**
+     * dispatchFeatureEvent: dispatching feature modify events while assigning fid
+     * @param type feature type, features featureCollection
+     */
+    this.dispatchFeatureEvent = function(type, features) {
+        features.forEach(function(feature){
+            if(feature.fid == undefined || !feature.fid) {
+                feature.fid = goog.getUid(feature);
+            }
+        });
+
+        this.dispatchEvent(new ol.ModifyEvent(type,
+            features));
+    }
 
     /**
      * @inheritDoc
@@ -100,12 +114,8 @@ ol.interaction.ModifyWithEvents = function(options) {
     this.handlePointerDown = function(evt) {
         var eventHandled = goog.base(this, 'handlePointerDown', evt);
         if(eventHandled) {
-            console.log(this.featureBeingModified_ && this.featureBeingModified_.getGeometry().getCoordinates(), this.vertexFeature && this.vertexFeature.getGeometry().getCoordinates());
-            if(this.featureBeingModified_ !== this.vertexFeature_) {
-                this.featureBeingModified_ = this.vertexFeature_;
-                this.dispatchEvent(new ol.ModifyEvent(ol.ModifyEventType.MODIFYSTART,
-                    this.vertexFeature_));
-            }
+            this.dispatchFeatureEvent(ol.ModifyEventType.MODIFYSTART,
+                this.features_);
         }
         return eventHandled;
     }
@@ -131,5 +141,17 @@ ol.interaction.ModifyWithEvents = function(options) {
                 evt.element));
         }
     }
+
+    /**
+     * @inheritDoc
+     */
+    this.handlePointerUp = function(evt) {
+        var returnedValue = goog.base(this, 'handlePointerUp', evt);
+        if(this.dragSegments_.length) {
+            this.dispatchFeatureEvent(ol.ModifyEventType.MODIFYEND,
+                this.features_);
+        }
+        return returnedValue;
+    };
 };
 goog.inherits(ol.interaction.ModifyWithEvents, ol.interaction.Modify);

@@ -51,6 +51,31 @@ define([
 
             // Setting up store for feature geometry changes i.e. for Undo/Redo functionality
             this.geometryHistoryStore = new Memory();
+            this.undoSteps = 0;
+            this.currentUndoStep = -1;
+
+            this.undoEdit = function() {
+                console.log("undoSteps", this.undoSteps, "currentUndoStep", this.currentUndoStep, "historyLength", this.geometryHistoryStore.data.length);
+                if(this.undoSteps) {
+                    if(this.currentUndoStep == -1)
+                        this.currentUndoStep = this.undoSteps;
+
+                    if(this.currentUndoStep) {
+                        var undoFeature = this.geometryHistoryStore.get(this.currentUndoStep);
+                        undoFeature.feature.setGeometry(undoFeature.geometry);
+                        this.currentUndoStep -= 1;
+                    }
+
+                }
+            }
+
+            this.redoEdit = function() {
+                if(this.currentUndoStep > -1 && this.currentUndoStep < this.undoSteps) {
+                    this.currentUndoStep += 1;
+                    var undoFeature = this.geometryHistoryStore.get(this.currentUndoStep);
+                    undoFeature.feature.setGeometry(undoFeature.geometry);
+                }
+            }
 
             // Style function, source and vector layer
             var styleFunction = (function() {
@@ -225,15 +250,20 @@ define([
                 style: this.overlayStyle
             });
 
-            this.modifyInteraction.on("modifystart", function(){console.log("modifystart");}, this);
-            this.modifyInteraction.on("featureadd", function(evt){console.log("featureadd", evt.feature.getGeometry());}, this);
-            this.modifyInteraction.on("featureremove", function(evt){console.log("featureremove", evt.feature.getGeometry());}, this);
+            this.modifyInteraction.on("modifystart",
+                function(evt){
+                    var feature = evt.featureCollection.getArray()[0];
+                    this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
+                    this.currentUndoStep = this.undoSteps;
+                }, this);
+            this.modifyInteraction.on("modifyend",
+                function(evt){
+                    var feature = evt.featureCollection.getArray()[0];
+                    this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
+                    this.currentUndoStep = this.undoSteps;
+                }, this);
 
-            this.modifyInteraction.on("rbushinsert", function(evt){console.log("rbushinsert", evt);});
-            this.modifyInteraction.on("rbushload", function(evt){console.log("rbushload", evt);});
-            this.modifyInteraction.on("rbushremove", function(evt){console.log("rbushremove", evt);});
-            this.modifyInteraction.on("rbushupdate", function(evt){console.log("rbushupdate", evt);});
-            this.modifyInteraction.on("rbushclear", function(evt){console.log("rbushclear", evt);});
+
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({

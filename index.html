@@ -28,15 +28,25 @@
                     "dijit/layout/ContentPane",
                     "dijit/layout/BorderContainer",
                     "dijit/registry",
+                    "dojo/_base/lang",
                     "demo/widget/MapWidget",
                     "dojo/domReady!"],
-                    function(parser, ContentPane, BorderContainer, registry, MapWidget) {
+                    function(parser, ContentPane, BorderContainer, registry, lang, MapWidget) {
 
                         parser.parse();
 
                         // The Controller Code
                         var mapWidget = registry.byId("mapWidgetId"),
-                            mapToolbarWidget = registry.byId("mapToolbarWidgetId");
+                            mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
+                            undoButton = registry.byId("mapUndoButtonId"),
+                                redoButton = registry.byId("mapRedoButtonId");
+
+                        undoButton.on('click', lang.hitch(mapWidget, 'undoEdit'));
+
+                        redoButton.on('click', lang.hitch(mapWidget, function(){
+                            //console.log(this.geometryHistoryStore);
+                            this.redoEdit();
+                        }));
 
                     });
         </script>
@@ -74,10 +84,10 @@
                             data-dojo-props="region: 'leading', splitter: false">
 
                             <div id="mapToolbarWidgetId" data-dojo-attach-point="mapToolbar" data-dojo-type="dijit/Toolbar">
-                                <div id="mapUndoButtonId" data-dojo-type="dijit/form/Button"
+                                <div id="mapUndoButtonId" data-dojo-attach-point="undoButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconUndo', showLabel:false">Undo</div>
 
-                                <div id="mapRedoButtonId" data-dojo-type="dijit/form/Button"
+                                <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
 
                             </div>
