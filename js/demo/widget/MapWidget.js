@@ -40,6 +40,7 @@ define([
         overlayStyle: null,
         selectInteraction: null,
         modifyInteraction: null,
+        drawInteraction: null,
         geometryHistoryStore: null,
         testVectorLayer: null,
 
@@ -66,6 +67,9 @@ define([
                         this.currentUndoStep -= 1;
                     }
 
+                    if(this.currentUndoStep == 0) {
+                        this.currentUndoStep = 1;
+                    }
                 }
             }
 
@@ -74,8 +78,124 @@ define([
                     this.currentUndoStep += 1;
                     var undoFeature = this.geometryHistoryStore.get(this.currentUndoStep);
                     undoFeature.feature.setGeometry(undoFeature.geometry);
+
+                    if(this.currentUndoStep == this.undoSteps) {
+                        this.currentUndoStep -= 1;
+                    }
                 }
             }
+
+            /**
+             * Attaches history functionality to layer by initializing memory store
+             * The expected format for history stack record is as:
+             * {
+             *      id:     (The step identifier, int),
+             *      fid: (The feature identifier, must be unique across layers, can be acquired form goog.getUid, int),
+             *      feature: (ref to the feature created, deleted or modified, ol.Feature)
+             *      from:   {   geometry: (feature.getGeometry().clone(), ol.geom.Geometry),
+             *                  style:  (style consisting of fill, stroke, opacity etc., ol.style.Style),
+             *                  properties: (literal properties, JSON object) }
+             *              | null for CREATE command
+             *              | ref to previous record.to with same fid if present for MODIFY command.
+             *
+             *      to:   {   geometry: (feature.getGeometry().clone(), ol.geom.Geometry),
+             *                  style:  (style consisting of fill, stroke, opacity etc., ol.style.Style),
+             *                  properties: (literal properties, JSON object) }
+             *              | null for DELETE command
+             * }
+             * @param layer ol.layer.Vector
+             */
+            this.initializeLayerForHistory = function(layer) {
+                layer.commandsHistoryStore = new Memory();
+                layer.undoStep = 0;
+
+                layer.afterFeatureCreate = function(feature) {
+                    this.insertCommand("CREATE", feature.getId(), null, {
+                        geometry: feature.getGeometry().clone(),
+                        style: feature.getStyle().clone(),
+                        properties: feature.properties // @TODO: implement clone
+                    });
+                }
+
+
+                /**
+                 * Called by interaction handlers passing the feature that is going to be modified
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.beforeFeatureModified = function(feature) {
+                    // Retrieving a from reference
+                    var fromRef = null;
+                    var queryResults = this.commandsHistoryStore.query(function(item){
+                        return item.id <= this.undoStep && item.fid == feature.getId() && item.to != null;
+                    }, {
+                        count: 1,
+                        sort: [{attribute: "id", descending: true}]
+                    });
+
+                    if(queryResults.length)
+                        fromRef = queryResults[0].to;
+
+                    this.insertCommand("MODIFY", feature.getId(), fromRef, {
+                        geometry: feature.getGeometry().clone(),
+                        style: feature.getStyle().clone(),
+                        properties: feature.properties // @TODO: implement clone
+                    });
+                }
+
+
+                /**
+                 * Called by interaction handlers passing the feature that has been modified
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.featureModified = function(feature) {
+                    // Retrieving a from reference
+                    var fromRef = null;
+                    var queryResults = this.commandsHistoryStore.query(function(item){
+                        return item.id <= this.undoStep && item.fid == feature.getId() && item.to != null;
+                    }, {
+                        count: 1,
+                        sort: [{attribute: "id", descending: true}]
+                    });
+
+                    if(queryResults.length)
+                        fromRef = queryResults[0].to;
+
+                    this.insertCommand("MODIFY", feature.getId(), fromRef, {
+                        geometry: feature.getGeometry().clone(),
+                        style: feature.getStyle().clone(),
+                        properties: feature.properties // @TODO: implement clone
+                    });
+                }
+
+                /**
+                 * Inserts a new command, the drawing events may call this function to keep track of the changes
+                 * @param type possible values are "CREATE" | "MODIFY" | "REMOVE"
+                 * @param fid the fid of feature added, removed or modified
+                 * @param from feature definition object before change
+                 * @param to feature definition object after change
+                 */
+                layer.insertCommand = function(type, fid, from, to) {
+                    // Removing records from stack having id > layer.undoStep
+                    var queryObject = {test: function(record){return record.id > this.undoStep}};
+                    var invalidRecords = this.commandsHistoryStore.queryEngine(queryObject);
+                    if(invalidRecords != undefined) {
+                        invalidRecords.forEach(function(record){
+                            this.commandsHistoryStore.remove(record.id);
+                        }, this);
+                    }
+
+                }
+            }
+
+            /**
+             * Ensures initial geometry is present in history store
+             * @param feature the feature to track history
+             */
+            /*this.trackGeometryHistory = function(feature) {
+                if(this.geometryHistoryStore.get(feature.fid) == undefined) {
+                    this.geometryHistoryStore.add({id: feature.fid, action: "initial"})
+                }
+            }*/
 
             // Style function, source and vector layer
             var styleFunction = (function() {
@@ -245,6 +365,37 @@ define([
                 style: this.overlayStyle
             });
 
+            this.activateDrawing = function() {
+                var featureOverlay = new ol.FeatureOverlay({
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(255, 200, 150, 0.2)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: '#ccff33',
+                            width: 0.5
+                        }),
+                        image: new ol.style.Icon({
+                            src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
+                            width: 18,
+                            height: 18,
+                            opacity: 0.8,
+                            rotation: Math.PI,
+                            xOffset: -3,
+                            yOffset: -2
+                        })
+
+                    })
+                });
+                featureOverlay.setMap(this.map);
+
+                var draw = new ol.interaction.Draw({
+                        features: featureOverlay.getFeatures(),
+                        type: 'Point'
+                    });
+                    this.map.addInteraction(draw);
+            }
+
             this.modifyInteraction = new ol.interaction.ModifyWithEvents({
                 features: this.selectInteraction.getFeatures(),
                 style: this.overlayStyle
@@ -253,14 +404,17 @@ define([
             this.modifyInteraction.on("modifystart",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
-                    this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    this.currentUndoStep = this.undoSteps;
+                    var queryResult = this.geometryHistoryStore.query({fid: feature.fid});
+                    if(!queryResult.total) {
+                        this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
+                    }
                 }, this);
+
             this.modifyInteraction.on("modifyend",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
                     this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    this.currentUndoStep = this.undoSteps;
+                    this.currentUndoStep = this.undoSteps - 1;
                 }, this);
 
 
@@ -306,20 +460,6 @@ define([
                 layers: [this.baseImageLayer, this.testVectorLayer],
                 target: this.mapDiv,
                 view: this.mapView
-            });
-
-            //this.map.on("drawend", function(event){console.log(event.target);});
-            this.modifyInteraction.on("POINTERDRAG", function(event){console.log("modify", event);});
-
-            // Features geometry change event
-            this.testVectorLayer.getSource().forEachFeature(function(feature) {
-                feature.on("DRAGEND", function(event){
-                    var currentTarget = event.currentTarget;
-                    var target = event.target;
-                    console.log("currentTarget", currentTarget.getCoordinates());
-                    console.log("target", target.getCoordinates());
-                    var debugIt = true;
-                }, this);
             });
 
             widgetDebug = this; // For dev purposes only
