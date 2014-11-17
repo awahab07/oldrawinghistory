@@ -101,6 +101,7 @@ ol.interaction.ModifyWithEvents = function(options) {
         features.forEach(function(feature){
             if(feature.fid == undefined || !feature.fid) {
                 feature.fid = goog.getUid(feature);
+                feature.setId(feature.fid);
             }
         });
 

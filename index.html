@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
-		<link rel="stylesheet" type="text/css" href="css/main.css">
 		<link rel="stylesheet" type="text/css" href="js/dijit/themes/claro/claro.css">
         <link rel="stylesheet" type="text/css" href="css/ol.css">
+        <link rel="stylesheet" type="text/css" href="css/main.css">
 
         <!-- OpenLayers 3.0.0-->
         <script type="text/javascript" src="js/ol-debug.js"></script>
+        <script teyp="text/javascript" src="js/ol-custom/ol-goog.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-interaction-modify.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-structs-rbush.js"></script>
 
@@ -39,15 +40,17 @@
                         var mapWidget = registry.byId("mapWidgetId"),
                             mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
                             undoButton = registry.byId("mapUndoButtonId"),
-                                redoButton = registry.byId("mapRedoButtonId");
+                            redoButton = registry.byId("mapRedoButtonId"),
+                            drawPolygonButton = registry.byId("mapPolygonDrawButtonId");
 
-                        undoButton.on('click', lang.hitch(mapWidget, 'undoEdit'));
+                        var layer = mapWidget.testVectorLayer;
+                        mapWidget.initializeLayerForCommandHistory(layer);
 
-                        redoButton.on('click', lang.hitch(mapWidget, function(){
-                            //console.log(this.geometryHistoryStore);
-                            this.redoEdit();
-                        }));
+                        undoButton.on('click', lang.hitch(layer, 'undo'));
 
+                        redoButton.on('click', lang.hitch(layer, 'redo'));
+
+                        drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
                     });
         </script>
 	</head>
@@ -87,8 +90,11 @@
                                 <div id="mapUndoButtonId" data-dojo-attach-point="undoButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconUndo', showLabel:false">Undo</div>
 
-                                <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
+                                <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
+
+                                <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
+                                    data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>
 
                             </div>
 

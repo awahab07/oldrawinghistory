@@ -91,6 +91,7 @@ define([
              * {
              *      id:     (The step identifier, int),
              *      fid: (The feature identifier, must be unique across layers, can be acquired form goog.getUid, int),
+             *      command: (The command type CREATE|DELETE|MODIFY, string),
              *      feature: (ref to the feature created, deleted or modified, ol.Feature)
              *      from:   {   geometry: (feature.getGeometry().clone(), ol.geom.Geometry),
              *                  style:  (style consisting of fill, stroke, opacity etc., ol.style.Style),
@@ -105,68 +106,39 @@ define([
              * }
              * @param layer ol.layer.Vector
              */
-            this.initializeLayerForHistory = function(layer) {
+            this.initializeLayerForCommandHistory = function(layer) {
                 layer.commandsHistoryStore = new Memory();
                 layer.undoStep = 0;
 
-                layer.afterFeatureCreate = function(feature) {
-                    this.insertCommand("CREATE", feature.getId(), null, {
-                        geometry: feature.getGeometry().clone(),
-                        style: feature.getStyle().clone(),
-                        properties: feature.properties // @TODO: implement clone
-                    });
-                }
-
-
                 /**
-                 * Called by interaction handlers passing the feature that is going to be modified
+                 * Will play an important role to retrieve Unique feature ids recognized by the application
                  * @param feature ol.Feature that is modified
                  */
-                layer.beforeFeatureModified = function(feature) {
-                    // Retrieving a from reference
-                    var fromRef = null;
-                    var queryResults = this.commandsHistoryStore.query(function(item){
-                        return item.id <= this.undoStep && item.fid == feature.getId() && item.to != null;
-                    }, {
-                        count: 1,
-                        sort: [{attribute: "id", descending: true}]
-                    });
-
-                    if(queryResults.length)
-                        fromRef = queryResults[0].to;
-
-                    this.insertCommand("MODIFY", feature.getId(), fromRef, {
-                        geometry: feature.getGeometry().clone(),
-                        style: feature.getStyle().clone(),
-                        properties: feature.properties // @TODO: implement clone
-                    });
+                layer.getFeatureId_ = function(feature) {
+                    googGetFeatureId(feature);
+                    
+                    if(!feature.getId()) {
+                        console.error("A valid feature.getId() in not present.");
+                    }
+                    
+                    return feature.getId();
                 }
-
 
                 /**
-                 * Called by interaction handlers passing the feature that has been modified
+                 * Grabes the features desired current state and returns the object meant to be assigned to
+                 * "from" or "to" properties of geometryHistoryStore
+                 * Will take care of necessary cloning of objects
                  * @param feature ol.Feature that is modified
                  */
-                layer.featureModified = function(feature) {
-                    // Retrieving a from reference
-                    var fromRef = null;
-                    var queryResults = this.commandsHistoryStore.query(function(item){
-                        return item.id <= this.undoStep && item.fid == feature.getId() && item.to != null;
-                    }, {
-                        count: 1,
-                        sort: [{attribute: "id", descending: true}]
-                    });
-
-                    if(queryResults.length)
-                        fromRef = queryResults[0].to;
-
-                    this.insertCommand("MODIFY", feature.getId(), fromRef, {
+                layer.getFeatureState_ = function(feature) {
+                    return {
                         geometry: feature.getGeometry().clone(),
-                        style: feature.getStyle().clone(),
+                        fid: feature.fid,
+                        //style: feature.getStyle().clone(),
                         properties: feature.properties // @TODO: implement clone
-                    });
+                    }    
                 }
-
+                
                 /**
                  * Inserts a new command, the drawing events may call this function to keep track of the changes
                  * @param type possible values are "CREATE" | "MODIFY" | "REMOVE"
@@ -174,16 +146,197 @@ define([
                  * @param from feature definition object before change
                  * @param to feature definition object after change
                  */
-                layer.insertCommand = function(type, fid, from, to) {
+                layer.insertCommand_ = function(command, fid, feature, from, to) {
                     // Removing records from stack having id > layer.undoStep
-                    var queryObject = {test: function(record){return record.id > this.undoStep}};
-                    var invalidRecords = this.commandsHistoryStore.queryEngine(queryObject);
-                    if(invalidRecords != undefined) {
-                        invalidRecords.forEach(function(record){
-                            this.commandsHistoryStore.remove(record.id);
-                        }, this);
+                    var queryResults = this.commandsHistoryStore.query(function(item){
+                        return item.id > this.undoStep;
+                    });
+                    
+                    queryResults.forEach(function(item){
+                        this.commandsHistoryStore.remove(item.id);
+                    });
+
+                    this.commandsHistoryStore.add({id: ++this.undoStep, fid:fid, command:command, feature:feature, from:from, to:to});
+                }                
+
+                /**
+                 * Will take care that the features pre operation (DELETE or MODIFY) state is tracked
+                 * @param type string = "DELETE"|"MODIFY"
+                 * @param feature ol.Feature that is modified
+                 */
+                 layer.ensureStateTrackedBeforeOperation_ = function(feature) {
+                    // Retrieving a from reference
+                    var fromRef = null;
+                    var queryResults = this.commandsHistoryStore.query(function(item){
+                        return item.id <= this.undoStep && item.fid == this.getFeatureId_(feature) && item.to != null;
+                    }, {
+                        count: 1,
+                        sort: [{attribute: "id", descending: true}]
+                    });
+
+                    if(queryResults.length)
+                        fromRef = queryResults[0].to;
+
+                    // If "from" is not retrieved, it will indicate that the feature is retrieved form the source
+                    // So insert a MODIFY command with "from" holding the current state of feature whereas "to" with
+                    // the string "PENDING" informing the following modified event to fill in
+                    if(!fromRef) {
+                        fromRef = this.getFeatureState_(feature);
                     }
 
+                    return fromRef;
+                 }
+
+                /**
+                 * Will retrieve the record tracking the state of feature before operations DELETE|MODIFY
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.retrieveTrackedStateRecord_ = function(command, feature) {
+                    // Retrieving a latest record with same fid and to="PENDING"
+                    var toRecord = null;
+                    var queryResults = this.commandsHistoryStore.query(function(item){
+                        return item.fid == feature.getId() && item.to === "PENDING" && item.command == command;
+                    }, {
+                        count: 1,
+                        sort: [{attribute: "id", descending: true}]
+                    });
+
+                    if(queryResults.length) {
+                        toRecord = queryResults[0];
+                    }
+
+                    return toRecord;
+                }
+
+                layer.unCreateFeature_ = function(commandRecord) {
+                    this.getSource_.removeFeature(commandRecord.feature);
+                }
+
+                layer.reCreateFeature_ = function(commandRecord) {
+                    this.getSource_.addFeature(new ol.Feature(commandRecord.to));
+                }
+
+                layer.unModifyFeature_ = function(commandRecord) {
+                    commandRecord.feature.setGeometry(commandRecord.from.geometry);
+                }
+
+                layer.reModifyFeature_ = function(commandRecord) {
+                    commandRecord.feature.setGeometry(commandRecord.to.geometry);
+                }
+
+                layer.unDeleteFeature_ = function(commandRecord) {
+                    var feature = new ol.Feature({
+                        fid: commandRecord.fid,
+                        geometry: commandRecord.from.geometry,
+                        style: commandRecord.from.style,
+                        properties: commandRecord.from.properties
+                    });
+                    commandRecord.feature = feature;
+                    this.getSource_().addFeature(commandRecord.feature);
+                }
+
+                layer.reDeleteFeature_ = function(commandRecord) {
+                    this.getSource_().removeFeature(commandRecord.feature);
+                }
+
+                /**
+                 * Undo a single command
+                 */
+                layer.undo = function() {
+                    if(this.undoStep) {
+                        var commandRecord = this.commandsHistoryStore.get(this.undoStep);
+                        switch(commandRecord.command) {
+                            case "CREATE":
+                                this.unCreateFeature_(commandRecord);
+                                break;
+                            case "MODIFY":
+                                this.unModifyFeature_(commandRecord);
+                                break;
+                            case "DELETE":
+                                this.unDeleteFeature_(commandRecord);
+                                break;
+                        }
+                        this.undoStep--;
+                    }
+                }
+
+                /**
+                 * Redo a single command
+                 */
+                layer.redo = function() {
+                    if(this.undoStep < this.commandsHistoryStore.data.length) {
+                        this.undoStep++;
+                        var commandRecord = this.commandsHistoryStore.get(this.undoStep);
+                        switch(commandRecord.command) {
+                            case "CREATE":
+                                this.reCreateFeature_(commandRecord);
+                                break;
+                            case "MODIFY":
+                                this.reModifyFeature_(commandRecord);
+                                break;
+                            case "DELETE":
+                                this.reDeleteFeature_(commandRecord);
+                                break;
+                        }
+                    }
+                }
+
+                /**
+                 * Called by interaction handlers passing the feature that has been created
+                 * @param feature ol.Feature that is created
+                 */
+                layer.featureCreated = function(feature) {
+                    this.insertCommand_("CREATE", this.getFeatureId_(feature), feature, null, this.getFeatureState_(feature));
+                }
+
+                /**
+                 * Called by interaction handlers passing the feature that is going to be deleted
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.beforeFeatureDeleted = function(feature) {
+                    var fromRef = this.ensureStateTrackedBeforeOperation_(feature);
+                    this.insertCommand_("DELETE", this.getFeatureId_(feature), feature, fromRef, "PENDING");
+                }
+
+                /**
+                 * Called by interaction handlers passing the feature that is going to be modified
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.beforeFeatureModified = function(feature) {
+                    var fromRef = this.ensureStateTrackedBeforeOperation_(feature);
+                    this.insertCommand_("MODIFY", this.getFeatureId_(feature), feature, fromRef, "PENDING");
+                }
+
+                /**
+                 * Called by interaction handlers passing the feature that has been deleted
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.featureDeleted = function(feature) {
+                    var trackedRecord = this.retrieveTrackedStateRecord_("DELETE", feature);
+                    if(trackedRecord) {
+                        trackedRecord.to = null; // Feature has been deleted
+                        this.commandsHistoryStore.put(trackedRecord, {overwrite: true});
+                    } else {
+                        console.error("Record of fid: " + feature.getId() + " couldn't be found in stack with \"PENDING\" status.");
+                    }
+                }
+
+                /**
+                 * Called by interaction handlers passing the feature that has been modified
+                 * @param feature ol.Feature that is modified
+                 */
+                layer.featureModified = function(feature) {
+                    var trackedRecord = this.retrieveTrackedStateRecord_("MODIFY", feature);
+                    if(trackedRecord) {
+                        trackedRecord.to = this.getFeatureState_(feature);
+                        this.commandsHistoryStore.put(trackedRecord, {overwrite: true});
+                    } else {
+                        console.error("Record of fid: " + feature.getId() + " couldn't be found in stack with \"PENDING\" status.");
+                    }
+                }
+
+                layer.handleDrawStart = function(evt) {
+                    console.log(evt);
                 }
             }
 
@@ -365,15 +518,15 @@ define([
                 style: this.overlayStyle
             });
 
-            this.activateDrawing = function() {
+            this.activatePolygonDrawing = function() {
                 var featureOverlay = new ol.FeatureOverlay({
                     style: new ol.style.Style({
                         fill: new ol.style.Fill({
                             color: 'rgba(255, 200, 150, 0.2)'
                         }),
                         stroke: new ol.style.Stroke({
-                            color: '#ccff33',
-                            width: 0.5
+                            color: '#eeff33',
+                            width: 1
                         }),
                         image: new ol.style.Icon({
                             src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
@@ -391,9 +544,14 @@ define([
 
                 var draw = new ol.interaction.Draw({
                         features: featureOverlay.getFeatures(),
-                        type: 'Point'
+                        type: 'Polygon'
                     });
-                    this.map.addInteraction(draw);
+                this.map.addInteraction(draw);
+
+                draw.on("drawend",
+                    function(evt){
+                        this.featureCreated(evt.feature);
+                    }, this.testVectorLayer);
             }
 
             this.modifyInteraction = new ol.interaction.ModifyWithEvents({
@@ -404,17 +562,21 @@ define([
             this.modifyInteraction.on("modifystart",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
+                    /*
                     var queryResult = this.geometryHistoryStore.query({fid: feature.fid});
                     if(!queryResult.total) {
                         this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    }
+                    }*/
+
+                    this.testVectorLayer.beforeFeatureModified(feature);
                 }, this);
 
             this.modifyInteraction.on("modifyend",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
-                    this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    this.currentUndoStep = this.undoSteps - 1;
+                    /*this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
+                    this.currentUndoStep = this.undoSteps - 1;*/
+                    this.testVectorLayer.featureModified(feature);
                 }, this);
 
 

@@ -45,3 +45,8 @@ h1 {
 float:none;
 clear:both;
 }
+
+/*Widget Styles*/
+.drawPolygonToolbarButton {
+	background-image: url("../js/demo/widget/images/icon-polygon.png");
+}
