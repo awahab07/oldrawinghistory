@@ -41,14 +41,20 @@
                             mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
                             undoButton = registry.byId("mapUndoButtonId"),
                             redoButton = registry.byId("mapRedoButtonId"),
+                            deleteButton = registry.byId("mapDeleteButtonId"),
                             drawPolygonButton = registry.byId("mapPolygonDrawButtonId");
 
                         var layer = mapWidget.testVectorLayer;
+                        layer.map = mapWidget.map;
+                        layer.selectInteraction = mapWidget.selectInteraction;
+
                         mapWidget.initializeLayerForCommandHistory(layer);
 
                         undoButton.on('click', lang.hitch(layer, 'undo'));
 
                         redoButton.on('click', lang.hitch(layer, 'redo'));
+
+                        deleteButton.on('click', lang.hitch(layer, 'deleteSelectedFeatures'));
 
                         drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
                     });
@@ -92,6 +98,9 @@
 
                                 <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
+
+                                <div id="mapDeleteButtonId" data-dojo-attach-point="deleteButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconDelete', showLabel:false">Delete</div>
 
                                 <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>

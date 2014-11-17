@@ -107,11 +107,14 @@ define([
              * @param layer ol.layer.Vector
              */
             this.initializeLayerForCommandHistory = function(layer) {
+                googAssertInstanceOf(layer.map, ol.Map, "Layer's map not valid");
+                googAssertInstanceOf(layer.selectInteraction, ol.interaction.Select, "Layer's Select Interaction not valid");
+
                 layer.commandsHistoryStore = new Memory();
                 layer.undoStep = 0;
 
                 /**
-                 * Will play an important role to retrieve Unique feature ids recognized by the application
+                 * Will help to retrieve Unique feature ids recognized by the application
                  * @param feature ol.Feature that is modified
                  */
                 layer.getFeatureId_ = function(feature) {
@@ -125,7 +128,14 @@ define([
                 }
 
                 /**
-                 * Grabes the features desired current state and returns the object meant to be assigned to
+                 * Returns the layers source ol.source.Vector
+                 */
+                layer.getSource_ = function() {
+                    return this.getSource();
+                }
+
+                /**
+                 * Grabs the features desired current state and returns the object meant to be assigned to
                  * "from" or "to" properties of geometryHistoryStore
                  * Will take care of necessary cloning of objects
                  * @param feature ol.Feature that is modified
@@ -148,12 +158,13 @@ define([
                  */
                 layer.insertCommand_ = function(command, fid, feature, from, to) {
                     // Removing records from stack having id > layer.undoStep
-                    var queryResults = this.commandsHistoryStore.query(function(item){
-                        return item.id > this.undoStep;
-                    });
+                    var invalidRecordsTester = function(item){return item.id > this.undoStep;}
+                    var queryResults = this.commandsHistoryStore.query(invalidRecordsTester);
+
+                    console.log(queryResults);
                     
-                    queryResults.forEach(function(item){
-                        this.commandsHistoryStore.remove(item.id);
+                    queryResults.forEach(function(item, layer){
+                        layer.commandsHistoryStore.remove(item.id);
                     });
 
                     this.commandsHistoryStore.add({id: ++this.undoStep, fid:fid, command:command, feature:feature, from:from, to:to});
@@ -209,11 +220,11 @@ define([
                 }
 
                 layer.unCreateFeature_ = function(commandRecord) {
-                    this.getSource_.removeFeature(commandRecord.feature);
+                    this.getSource_().removeFeature(commandRecord.feature);
                 }
 
                 layer.reCreateFeature_ = function(commandRecord) {
-                    this.getSource_.addFeature(new ol.Feature(commandRecord.to));
+                    this.getSource_().addFeature(commandRecord.feature);
                 }
 
                 layer.unModifyFeature_ = function(commandRecord) {
@@ -282,6 +293,17 @@ define([
                 }
 
                 /**
+                 * Delete featues selected by ol.interaction.Select
+                 */
+                layer.deleteSelectedFeatures = function() {
+                    this.selectInteraction.getFeatures().forEach(function(feature){
+                        layer.beforeFeatureDeleted(feature);
+                        layer.getSource_().removeFeature(feature);
+                        layer.featureDeleted(feature);
+                    });
+                }
+
+                /**
                  * Called by interaction handlers passing the feature that has been created
                  * @param feature ol.Feature that is created
                  */
@@ -333,10 +355,6 @@ define([
                     } else {
                         console.error("Record of fid: " + feature.getId() + " couldn't be found in stack with \"PENDING\" status.");
                     }
-                }
-
-                layer.handleDrawStart = function(evt) {
-                    console.log(evt);
                 }
             }
 
@@ -540,16 +558,19 @@ define([
 
                     })
                 });
-                featureOverlay.setMap(this.map);
+                //featureOverlay.setMap(this.map);
 
                 var draw = new ol.interaction.Draw({
-                        features: featureOverlay.getFeatures(),
+                        features: this.testVectorLayer.getSource_().getFeatures(),
                         type: 'Polygon'
                     });
                 this.map.addInteraction(draw);
 
                 draw.on("drawend",
                     function(evt){
+                        this.getSource_().addFeature(evt.feature);
+                        this.map.removeInteraction(draw);
+                        //featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
                     }, this.testVectorLayer);
             }

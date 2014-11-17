@@ -8,7 +8,7 @@
  goog.require('ol.Feature');
 
  function googGetFeatureId(feature) {
- 	goog.asserts.assertInstanceof(feature, ol.Feature);
+ 	goog.asserts.assertInstanceof(feature, ol.Feature, "feature is not an instance of ol.Feature");
  	if(feature && feature.getId && feature.getId()) {
  		if(!feature.fid) {
  			feature.fid = feature.getId();
@@ -19,3 +19,7 @@
     
     return feature.getId();
  }
+
+function googAssertInstanceOf(value, type, opt_message, var_args) {
+    goog.asserts.assertInstanceof(value, type, opt_message, var_args);
+}
