@@ -3,6 +3,7 @@ define([
     "dojo/_base/declare",
     "dojo/_base/fx",
     "dojo/_base/lang",
+    "dojo/_base/array",
     "dojo/on",
     "dojo/dom-style",
     "dojo/aspect",
@@ -14,7 +15,7 @@ define([
     "dijit/_TemplatedMixin",
     "dijit/_WidgetsInTemplateMixin",
     "dojo/text!./templates/MapWidget.html"
-], function(declare, baseFx, lang, on, domStyle, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
+], function(declare, baseFx, lang, arrayUtil, on, domStyle, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
     return declare([_WidgetBase, _TemplatedMixin], {
  
         // Our template - important!
@@ -110,8 +111,16 @@ define([
                 googAssertInstanceOf(layer.map, ol.Map, "Layer's map not valid");
                 googAssertInstanceOf(layer.selectInteraction, ol.interaction.Select, "Layer's Select Interaction not valid");
 
-                layer.commandsHistoryStore = new Memory();
                 layer.undoStep = 0;
+                layer.commandsHistoryStore = new Memory();
+                layer.commandsHistoryStore.removeInvalidCommandRecords = function() {
+                    var removeIfInvalid = function(item) {
+                        if(item.id > layer.undoStep) {
+                            layer.commandsHistoryStore.remove(item.id);
+                        }
+                    }
+                    this.query({}).forEach(removeIfInvalid);
+                }
 
                 /**
                  * Will help to retrieve Unique feature ids recognized by the application
@@ -158,14 +167,7 @@ define([
                  */
                 layer.insertCommand_ = function(command, fid, feature, from, to) {
                     // Removing records from stack having id > layer.undoStep
-                    var invalidRecordsTester = function(item){return item.id > this.undoStep;}
-                    var queryResults = this.commandsHistoryStore.query(invalidRecordsTester);
-
-                    console.log(queryResults);
-                    
-                    queryResults.forEach(function(item, layer){
-                        layer.commandsHistoryStore.remove(item.id);
-                    });
+                    this.commandsHistoryStore.removeInvalidCommandRecords();
 
                     this.commandsHistoryStore.add({id: ++this.undoStep, fid:fid, command:command, feature:feature, from:from, to:to});
                 }                
@@ -461,9 +463,7 @@ define([
             });
 
             this._featureGeometryChanged = function(event) {
-                var currentTarget = event.currentTarget;
-                var target = event.target;
-                var debugIt = true;
+                console.log(event)
             }
 
             // Map OverlayStyle
