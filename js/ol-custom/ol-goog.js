@@ -20,6 +20,6 @@
     return feature.getId();
  }
 
-function googAssertInstanceOf(value, type, opt_message, var_args) {
+ function googAssertInstanceOf(value, type, opt_message, var_args) {
     goog.asserts.assertInstanceof(value, type, opt_message, var_args);
-}
+ }
