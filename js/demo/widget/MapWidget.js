@@ -301,6 +301,7 @@ define([
                     this.selectInteraction.getFeatures().forEach(function(feature){
                         layer.beforeFeatureDeleted(feature);
                         layer.getSource_().removeFeature(feature);
+                        layer.selectInteraction.getFeatures().remove(feature);
                         layer.featureDeleted(feature);
                     });
                 }
@@ -449,7 +450,13 @@ define([
                                 'type': 'Feature',
                                 'geometry': {
                                     'type': 'LineString',
-                                    'coordinates': [[400, 100], [800, 200], [900, 200]]
+                                    'coordinates': [[400, 100], [800, 200], [900, 200]],
+                                    'style':{
+                                        //all SVG styles allowed
+                                        "fill":"green",
+                                        "stroke-width":"3",
+                                        "fill-opacity":0.6
+                                    }
                                 }
                             }
                         ]

@@ -30,9 +30,10 @@
                     "dijit/layout/BorderContainer",
                     "dijit/registry",
                     "dojo/_base/lang",
+                    "dojox/grid/DataGrid",
                     "demo/widget/MapWidget",
                     "dojo/domReady!"],
-                    function(parser, ContentPane, BorderContainer, registry, lang, MapWidget) {
+                    function(parser, ContentPane, BorderContainer, registry, lang, DataGrid, MapWidget) {
 
                         parser.parse();
 
@@ -76,8 +77,16 @@
             
                 <div style="width: 15%" id="leftCol" class="edgePanel"
                     data-dojo-type="dijit/layout/ContentPane"
-                    data-dojo-props="region: 'left', splitter: true">
+                    data-dojo-props="region: 'leading', splitter: true">
 
+                    <table data-dojo-type="dojox/grid/DataGrid" data-dojo-props="width:'100%'">
+                        <thead>
+                        <tr>
+                            <th field="fieldName" width="200px">Layer</th>
+                            <th field="fieldName" width="200px">Visible</th>
+                        </tr>
+                        </thead>
+                    </table>
                 </div>
 
                 <div class="centerPanel"
