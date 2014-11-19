@@ -1,4 +1,3 @@
-var widgetDebug = null; // For Debugging
 define([
     "dojo/_base/declare",
     "dojo/_base/fx",
@@ -55,36 +54,6 @@ define([
             this.geometryHistoryStore = new Memory();
             this.undoSteps = 0;
             this.currentUndoStep = -1;
-
-            this.undoEdit = function() {
-                console.log("undoSteps", this.undoSteps, "currentUndoStep", this.currentUndoStep, "historyLength", this.geometryHistoryStore.data.length);
-                if(this.undoSteps) {
-                    if(this.currentUndoStep == -1)
-                        this.currentUndoStep = this.undoSteps;
-
-                    if(this.currentUndoStep) {
-                        var undoFeature = this.geometryHistoryStore.get(this.currentUndoStep);
-                        undoFeature.feature.setGeometry(undoFeature.geometry);
-                        this.currentUndoStep -= 1;
-                    }
-
-                    if(this.currentUndoStep == 0) {
-                        this.currentUndoStep = 1;
-                    }
-                }
-            }
-
-            this.redoEdit = function() {
-                if(this.currentUndoStep > -1 && this.currentUndoStep < this.undoSteps) {
-                    this.currentUndoStep += 1;
-                    var undoFeature = this.geometryHistoryStore.get(this.currentUndoStep);
-                    undoFeature.feature.setGeometry(undoFeature.geometry);
-
-                    if(this.currentUndoStep == this.undoSteps) {
-                        this.currentUndoStep -= 1;
-                    }
-                }
-            }
 
             /**
              * Attaches history functionality to layer by initializing memory store
@@ -360,16 +329,6 @@ define([
                     }
                 }
             }
-
-            /**
-             * Ensures initial geometry is present in history store
-             * @param feature the feature to track history
-             */
-            /*this.trackGeometryHistory = function(feature) {
-                if(this.geometryHistoryStore.get(feature.fid) == undefined) {
-                    this.geometryHistoryStore.add({id: feature.fid, action: "initial"})
-                }
-            }*/
 
             // Style function, source and vector layer
             var styleFunction = (function() {

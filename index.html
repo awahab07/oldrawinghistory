@@ -25,15 +25,17 @@
 		<script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
 
         <script type="text/javascript">
+            var layerStore, widgetDebug = null; // For Debugging
             require(["dojo/parser",
                     "dijit/layout/ContentPane",
                     "dijit/layout/BorderContainer",
                     "dijit/registry",
                     "dojo/_base/lang",
+                    "dojo/data/ItemFileReadStore",
                     "dojox/grid/DataGrid",
                     "demo/widget/MapWidget",
                     "dojo/domReady!"],
-                    function(parser, ContentPane, BorderContainer, registry, lang, DataGrid, MapWidget) {
+                    function(parser, ContentPane, BorderContainer, registry, lang, ItemFileReadStore, DataGrid, MapWidget) {
 
                         parser.parse();
 
@@ -44,6 +46,10 @@
                             redoButton = registry.byId("mapRedoButtonId"),
                             deleteButton = registry.byId("mapDeleteButtonId"),
                             drawPolygonButton = registry.byId("mapPolygonDrawButtonId");
+
+                        layerStore = new ItemFileReadStore({
+                            url: 'data/layers-features.json'
+                        });
 
                         var layer = mapWidget.testVectorLayer;
                         layer.map = mapWidget.map;
