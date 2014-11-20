@@ -50,3 +50,19 @@ clear:both;
 .drawPolygonToolbarButton {
 	background-image: url("../js/demo/widget/images/icon-polygon.png");
 }
+
+.exportToolbarButton {
+    background-image: url("../js/demo/widget/images/icon-export.png");
+}
+
+.exportToPngButton {
+    background-image: url("../js/demo/widget/images/icon-png.png");
+}
+
+.exportToJpgButton {
+    background-image: url("../js/demo/widget/images/icon-jpg.png");
+}
+
+.exportToolbarButton~.dijitArrowButtonInner {
+    display: none;
+}

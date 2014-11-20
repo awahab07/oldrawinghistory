@@ -330,6 +330,20 @@ define([
                 }
             }
 
+            this.featureStyleFunction = (function() {
+                return function(feature, resolution) {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: feature.style.stroke.color,
+                            width: feature.style.stroke.width
+                        }),
+                        fill: new ol.style.Fill({
+                            color: feature.style.fill.color
+                        })
+                    });
+                };
+            })();
+
             // Style function, source and vector layer
             var styleFunction = (function() {
                 /* jshint -W069 */
@@ -395,26 +409,47 @@ define([
                                 'type': 'Feature',
                                 'geometry': {
                                     'type': 'Point',
-                                    'coordinates': [700, 300]
+                                    'coordinates': [487.34909155626224, 528.7831113832901]
+                                },
+                                'style':{
+                                    'fill': {
+                                        'color': "rgba(220, 150, 30)"
+                                    },
+                                    'stroke': {
+                                        'color': "rgba(150, 150, 30)",
+                                        'width': 1
+                                    }
                                 }
                             },
                             {
                                 'type': 'Feature',
                                 'geometry': {
                                     'type': 'MultiPoint',
-                                    'coordinates': [[1000, 555], [1200, 555]]
+                                    'coordinates': [[727.9740915562622, 433.8178336055123], [717.0365915562622, 377.5678336055123]]
+                                },
+                                'style':{
+                                    'fill': {
+                                        'color': "rgba(220, 150, 30)"
+                                    },
+                                    'stroke': {
+                                        'color': "rgba(150, 150, 30)",
+                                        'width': 1
+                                    }
                                 }
                             },
                             {
                                 'type': 'Feature',
                                 'geometry': {
                                     'type': 'LineString',
-                                    'coordinates': [[400, 100], [800, 200], [900, 200]],
-                                    'style':{
-                                        //all SVG styles allowed
-                                        "fill":"green",
-                                        "stroke-width":"3",
-                                        "fill-opacity":0.6
+                                    'coordinates': [[335.2986052686324, 149.7442083623813], [214.98610526863243, 290.3692083623813], [146.23610526863246, 284.1192083623814], [36.8611052686324, 123.1817083623813], [56.95039098291818, 57.5567083623813], [124.13789098291818, 66.9317083623813], [189.76289098291818, 76.3067083623813], [233.51289098291818, 76.3067083623813], [339.7628909829182, 80.9942083623813], [338.2003909829182, 145.0567083623813]]
+                                },
+                                'style':{
+                                    'fill': {
+                                        'color': "rgba(220, 150, 30)"
+                                    },
+                                    'stroke': {
+                                        'color': "rgba(150, 150, 30)",
+                                        'width': 1
                                     }
                                 }
                             }
@@ -427,10 +462,6 @@ define([
                 source: source,
                 style: styleFunction
             });
-
-            this._featureGeometryChanged = function(event) {
-                console.log(event)
-            }
 
             // Map OverlayStyle
             this.overlayStyle = (function() {
@@ -539,6 +570,15 @@ define([
                         //featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
                     }, this.testVectorLayer);
+            }
+
+            this.exportCanvas = function(encoding) {
+                this.map.once('postcompose', function(event) {
+                    var canvas = event.context.canvas;
+                    this.exportLink.href = canvas.toDataURL(encoding || 'image/png');
+                    this.exportLink.click();
+                }, this);
+                this.map.renderSync();
             }
 
             this.modifyInteraction = new ol.interaction.ModifyWithEvents({

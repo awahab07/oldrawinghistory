@@ -34,36 +34,46 @@
                     "dojo/data/ItemFileReadStore",
                     "dojox/grid/DataGrid",
                     "demo/widget/MapWidget",
+                    "dojo/ready",
                     "dojo/domReady!"],
-                    function(parser, ContentPane, BorderContainer, registry, lang, ItemFileReadStore, DataGrid, MapWidget) {
+                    function(parser, ContentPane, BorderContainer, registry, lang, ItemFileReadStore, DataGrid, MapWidget, ready) {
 
                         parser.parse();
 
-                        // The Controller Code
-                        var mapWidget = registry.byId("mapWidgetId"),
-                            mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
-                            undoButton = registry.byId("mapUndoButtonId"),
-                            redoButton = registry.byId("mapRedoButtonId"),
-                            deleteButton = registry.byId("mapDeleteButtonId"),
-                            drawPolygonButton = registry.byId("mapPolygonDrawButtonId");
+                        ready(function(){
+                            // The Controller Code
+                            var mapWidget = registry.byId("mapWidgetId"),
+                                    mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
+                                    undoButton = registry.byId("mapUndoButtonId"),
+                                    redoButton = registry.byId("mapRedoButtonId"),
+                                    deleteButton = registry.byId("mapDeleteButtonId"),
+                                    drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
+                                    exportToPngButton = registry.byId("exportToPngButtonId"),
+                                    exportToJpgButton = registry.byId("exportToJpgButtonId");
 
-                        layerStore = new ItemFileReadStore({
-                            url: 'data/layers-features.json'
+                            layerStore = new ItemFileReadStore({
+                                url: 'data/layers-features.json'
+                            });
+
+                            var layer = mapWidget.testVectorLayer;
+                            layer.map = mapWidget.map;
+                            layer.selectInteraction = mapWidget.selectInteraction;
+
+                            mapWidget.initializeLayerForCommandHistory(layer);
+
+                            undoButton.on('click', lang.hitch(layer, 'undo'));
+
+                            redoButton.on('click', lang.hitch(layer, 'redo'));
+
+                            deleteButton.on('click', lang.hitch(layer, 'deleteSelectedFeatures'));
+
+                            drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
+
+                            exportToPngButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/png'));
+
+                            exportToJpgButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/jpeg'));
                         });
 
-                        var layer = mapWidget.testVectorLayer;
-                        layer.map = mapWidget.map;
-                        layer.selectInteraction = mapWidget.selectInteraction;
-
-                        mapWidget.initializeLayerForCommandHistory(layer);
-
-                        undoButton.on('click', lang.hitch(layer, 'undo'));
-
-                        redoButton.on('click', lang.hitch(layer, 'redo'));
-
-                        deleteButton.on('click', lang.hitch(layer, 'deleteSelectedFeatures'));
-
-                        drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
                     });
         </script>
 	</head>
@@ -120,6 +130,17 @@
                                 <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>
 
+                                <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon exportToolbarButton', showLabel:false">
+                                    <span>Export</span>
+                                    <div data-dojo-type="dijit/TooltipDialog">
+                                        <div id="exportToPngButtonId" data-dojo-attach-point="exportPngButton" data-dojo-type="dijit/form/Button"
+                                             data-dojo-props="iconClass:'dijitEditorIcon exportToPngButton', showLabel:true">PNG</div>
+                                        <br />
+                                        <div id="exportToJpgButtonId" data-dojo-attach-point="exportJpgButton" data-dojo-type="dijit/form/Button"
+                                             data-dojo-props="iconClass:'dijitEditorIcon exportToJpgButton', showLabel:true">JPEG</div>
+                                    </div>
+                                </div>
+
                             </div>
 
                         </div>
@@ -129,7 +150,7 @@
                             data-dojo-props="region: 'center'">
 
                             <div id="mapWidgetId" data-dojo-type="demo/widget/MapWidget"
-                                data-dojo-props="imageUrl:'img/scenery-1920x1080.jpg', width:'800px', height:'500px', imageWidth:1920, imageHeight:1080, minZoom:0, maxZoom:10, zoomFactor:2, zoom:2"></div>
+                                data-dojo-props="imageUrl:'img/scenery-800x600.jpg', width:'800px', height:'500px', imageWidth:800, imageHeight:600, minZoom:0, maxZoom:10, zoomFactor:0.5, zoom:1"></div>
 
                         </div>
 
