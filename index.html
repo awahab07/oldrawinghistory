@@ -9,6 +9,7 @@
         <script type="text/javascript" src="js/ol-debug.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-goog.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-interaction-modify.js"></script>
+        <script teyp="text/javascript" src="js/ol-custom/ol-interaction-draw.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-structs-rbush.js"></script>
 
         <!-- dojo 1.9 -->
@@ -48,6 +49,7 @@
                                     redoButton = registry.byId("mapRedoButtonId"),
                                     deleteButton = registry.byId("mapDeleteButtonId"),
                                     drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
+                                    drawArrowButton = registry.byId("mapArrowDrawButtonId"),
                                     exportToPngButton = registry.byId("exportToPngButtonId"),
                                     exportToJpgButton = registry.byId("exportToJpgButtonId");
 
@@ -68,6 +70,8 @@
                             deleteButton.on('click', lang.hitch(layer, 'deleteSelectedFeatures'));
 
                             drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
+
+                            drawArrowButton.on('click', lang.hitch(mapWidget, 'activateArrowDrawing'));
 
                             exportToPngButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/png'));
 
@@ -129,6 +133,9 @@
 
                                 <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
                                     data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>
+
+                                <div id="mapArrowDrawButtonId" data-dojo-attach-point="arrowDrawButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon drawArrowButton', showLabel:false">Draw Arrow</div>
 
                                 <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon exportToolbarButton', showLabel:false">
                                     <span>Export</span>
