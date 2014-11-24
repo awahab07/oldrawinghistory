@@ -598,7 +598,8 @@ define([
 
                 var draw = new ol.interaction.DrawWithShapes({
                     features: this.testVectorLayer.getSource_().getFeatures(),
-                    type: 'Arrow'
+                    type: 'Polygon',
+                    shapeType: 'Arrow'
                 });
                 this.map.addInteraction(draw);
 

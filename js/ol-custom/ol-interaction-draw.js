@@ -4,7 +4,7 @@
  */
 
 goog.provide('ol.interaction.DrawModeWithShapes');
-goog.provide('ol.interaction.DrawWithShapes');
+goog.provide('ol.interaction.ShapeType');
 
 goog.require('ol.DrawEvent');
 goog.require('ol.interaction.Draw');
@@ -14,10 +14,7 @@ goog.require('ol.interaction.Draw');
  * cousins.
  * @enum {string}
  */
-ol.interaction.DrawModeWithShapes = {
-    POINT: 'Point',
-    LINE_STRING: 'LineString',
-    POLYGON: 'Polygon',
+ol.interaction.ShapeType = {
     ARROW: 'Arrow'
 };
 
@@ -34,10 +31,26 @@ ol.interaction.DrawModeWithShapes = {
  * @api stable
  */
 ol.interaction.DrawWithShapes = function(options) {
-    var actualType = options.type;
-    //options.type = ol.interaction.DrawModeWithShapes.LINE_STRING;
     goog.base(this, options);
-    options.type = actualType;
+    
+	/**
+	 * Custom Shape type.
+	 * @type {ol.geom.GeometryType}
+	 * @private
+	 */
+	this.shapeType_ = options.shapeType;
+
+	/**
+	 *
+	 */
+	this.getSketchFeature_(shapeType, coordinates) {
+		switch(shapeType) {
+			case ol.interaction.ShapeType.ARROW:
+				goog.asserts.assert(coordinates.length == 2, "Not enought coordinates to draw ARROW shpe");
+				
+			break;
+		}
+	}
 
     /**
      *@inheritDoc
@@ -55,9 +68,6 @@ ol.interaction.DrawWithShapes = function(options) {
                 this.startDrawing_(event);
             } else if (this.mode_ === ol.interaction.DrawMode.POINT ||
                 this.atFinish_(event)) {
-                this.finishDrawing_(event);
-            } else if(this.mode_ === ol.interaction.DrawModeWithShapes.ARROW && this.atFinish_(event)) {
-                console.log(this.sketchFeature_.getGeometry().getCoordinates());
                 this.finishDrawing_(event);
             } else {
                 this.addToDrawing_(event);
@@ -82,8 +92,6 @@ ol.interaction.DrawWithShapes = function(options) {
         } else if (type === ol.geom.GeometryType.POLYGON ||
             type === ol.geom.GeometryType.MULTI_POLYGON) {
             mode = ol.interaction.DrawMode.POLYGON;
-        } else if (type === ol.interaction.DrawModeWithShapes.ARROW) {
-            mode = ol.interaction.DrawModeWithShapes.ARROW;
         }
         goog.asserts.assert(goog.isDef(mode), "ol-custom/ol-interaction.draw.js #57");
         return mode;
@@ -98,14 +106,16 @@ ol.interaction.DrawWithShapes = function(options) {
             var geometry = this.sketchFeature_.getGeometry();
             var potentiallyDone = false;
             var potentiallyFinishCoordinates = [this.finishCoordinate_];
-            if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
-                goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #71");
+            if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
+                goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
+                potentiallyDone = this.sketchPolygonCoords_[0].length > 1;
+                potentiallyFinishCoordinates = [this.sketchPolygonCoords_[0][0],
+                    this.sketchPolygonCoords_[0][this.sketchPolygonCoords_[0].length - 2]];
+            } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
+                goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
                 potentiallyDone = geometry.getCoordinates().length > 2;
-            } else if (this.mode_ === ol.interaction.DrawModeWithShapes.ARROW) {
-                goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #74");
-                potentiallyDone = geometry.getCoordinates().length > 2;
-            }else if (this.mode_ === ol.interaction.DrawMode.POLYGON) {
-                goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #77");
+            } else if (this.mode_ === ol.interaction.DrawMode.POLYGON) {
+                goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
                 potentiallyDone = geometry.getCoordinates()[0].length >
                     this.minPointsPerRing_;
                 potentiallyFinishCoordinates = [this.sketchPolygonCoords_[0][0],
@@ -122,6 +132,7 @@ ol.interaction.DrawWithShapes = function(options) {
                     at = Math.sqrt(dx * dx + dy * dy) <= this.snapTolerance_;
                     if (at) {
                         this.finishCoordinate_ = finishCoordinate;
+                        console.log("finish coordinate", this.finishCoordinate_);
                         break;
                     }
                 }
@@ -140,9 +151,12 @@ ol.interaction.DrawWithShapes = function(options) {
         if (this.mode_ === ol.interaction.DrawMode.POINT) {
             geometry = new ol.geom.Point(start.slice());
         } else {
-            if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
-                geometry = new ol.geom.LineString([start.slice(), start.slice()]);
-            } else if (this.mode_ === ol.interaction.DrawModeWithShapes.ARROW) {
+        	if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
+                this.sketchLine_ = new ol.Feature(new ol.geom.LineString([start.slice(),
+                    start.slice()]));
+                this.sketchPolygonCoords_ = [[start.slice(), start.slice()]];
+                geometry = new ol.geom.Polygon(this.sketchPolygonCoords_);
+            } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 geometry = new ol.geom.LineString([start.slice(), start.slice()]);
             } else if (this.mode_ === ol.interaction.DrawMode.POLYGON) {
                 this.sketchLine_ = new ol.Feature(new ol.geom.LineString([start.slice(),
@@ -176,16 +190,18 @@ ol.interaction.DrawWithShapes = function(options) {
             last[1] = coordinate[1];
             geometry.setCoordinates(last);
         } else {
-            if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
+        	if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
+                goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #148");
+                coordinates = this.sketchPolygonCoords_[0];
+                console.log("modifyDrawing_", coordinates);
+            } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #149");
-                coordinates = geometry.getCoordinates();
-            } else if (this.mode_ === ol.interaction.DrawModeWithShapes.ARROW) {
-                goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #152");
                 coordinates = geometry.getCoordinates();
             } else if (this.mode_ === ol.interaction.DrawMode.POLYGON) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #155");
                 coordinates = this.sketchPolygonCoords_[0];
             }
+            
             if (this.atFinish_(event)) {
                 // snap to finish
                 coordinate = this.finishCoordinate_.slice();
@@ -217,16 +233,14 @@ ol.interaction.DrawWithShapes = function(options) {
         var coordinate = event.coordinate;
         var geometry = this.sketchFeature_.getGeometry();
         var coordinates;
-        if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
+        if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
+        	console.log("add to drawing", coordinate.slice());
+            this.sketchPolygonCoords_[0].push(coordinate.slice());
+            goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
+            geometry.setCoordinates(this.sketchPolygonCoords_);
+        } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
             this.finishCoordinate_ = coordinate.slice();
             goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
-            coordinates = geometry.getCoordinates();
-            coordinates.push(coordinate.slice());
-            geometry.setCoordinates(coordinates);
-        } else if (this.mode_ === ol.interaction.DrawModeWithShapes.ARROW) {
-            console.log("finishing Arrow Drawing");
-            this.finishCoordinate_ = coordinate.slice();
-            goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #197");
             coordinates = geometry.getCoordinates();
             coordinates.push(coordinate.slice());
             geometry.setCoordinates(coordinates);
@@ -251,14 +265,18 @@ ol.interaction.DrawWithShapes = function(options) {
         if (this.mode_ === ol.interaction.DrawMode.POINT) {
             goog.asserts.assertInstanceof(geometry, ol.geom.Point);
             coordinates = geometry.getCoordinates();
+        } else if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
+        	console.log("finish drawing, pop and push:", this.sketchPolygonCoords_[0][0], "coordinates", coordinates)
+            goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
+            // When we finish drawing a polygon on the last point,
+            // the last coordinate is duplicated as for LineString
+            // we force the replacement by the first point
+            this.sketchPolygonCoords_[0].pop();
+            this.sketchPolygonCoords_[0].push(this.sketchPolygonCoords_[0][0]);
+            geometry.setCoordinates(this.sketchPolygonCoords_);
+            coordinates = geometry.getCoordinates();
         } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
             goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
-            coordinates = geometry.getCoordinates();
-            // remove the redundant last point
-            coordinates.pop();
-            geometry.setCoordinates(coordinates);
-        } else if (this.mode_ === ol.interaction.DrawModeWithShapes.ARROW) {
-            goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #229");
             coordinates = geometry.getCoordinates();
             // remove the redundant last point
             coordinates.pop();
