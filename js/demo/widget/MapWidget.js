@@ -557,7 +557,7 @@ define([
                 });
                 //featureOverlay.setMap(this.map);
 
-                var draw = new ol.interaction.Draw({
+                var draw = new ol.interaction.DrawWithShapes({
                         features: this.testVectorLayer.getSource_().getFeatures(),
                         type: 'Polygon'
                     });
