@@ -42,7 +42,9 @@ define([
         modifyInteraction: null,
         drawInteraction: null,
         geometryHistoryStore: null,
-        testVectorLayer: null,
+        activeLayer: null,
+        layerStore: null,
+        olLayers: [],
 
         _featureGeometryChanged: null,
 
@@ -50,10 +52,32 @@ define([
         postMixInProperties: function() {
             this.inherited(arguments);
 
-            // Setting up store for feature geometry changes i.e. for Undo/Redo functionality
-            this.geometryHistoryStore = new Memory();
-            this.undoSteps = 0;
-            this.currentUndoStep = -1;
+            this.processLayerStore = function(layerStore) {
+                this.layerStore = layerStore;
+
+                // Building OL Layers
+                var storeLayers = layerStore.query({});
+                storeLayers.forEach(lang.hitch(this, this.buildOLLayerFromStoreLayer));
+                storeLayers.observe(this.layerStoreChanged, true);
+
+                this.activeLayer = this.olLayers[0];
+            }
+
+            this.buildOLLayerFromStoreLayer = function(layer) {
+                var olLayer = this.layerStore.getOLLayer(layer);
+                this.map.addLayer(olLayer);
+
+                olLayer.map = this.map;
+                olLayer.selectInteraction = this.selectInteraction;
+                this.initializeLayerForCommandHistory(olLayer);
+
+                this.olLayers.push(olLayer);
+            }
+
+            this.layerStoreChanged = function(object, removedFrom, insertedInto) {
+                var olLayer = this.layerStore.getOLLayerReference(object);
+                olLayer.setVisible(object.visible);
+            }
 
             /**
              * Attaches history functionality to layer by initializing memory store
@@ -344,124 +368,17 @@ define([
                 };
             })();
 
-            // Style function, source and vector layer
-            var styleFunction = (function() {
-                /* jshint -W069 */
-                var styles = {};
-                var image = new ol.style.Circle({
-                    radius: 5,
-                    fill: null,
-                    stroke: new ol.style.Stroke({color: 'orange', width: 2})
-                });
-                styles['Point'] = [new ol.style.Style({image: image})];
-                styles['Polygon'] = [new ol.style.Style({
-                    stroke: new ol.style.Stroke({
-                        color: 'blue',
-                        width: 3
-                    }),
-                    fill: new ol.style.Fill({
-                        color: 'rgba(0, 0, 255, 0.1)'
-                    })
-                })];
-                styles['MultiLinestring'] = [new ol.style.Style({
-                    stroke: new ol.style.Stroke({
-                        color: 'green',
-                        width: 3
-                    })
-                })];
-                styles['MultiPolygon'] = [new ol.style.Style({
-                    stroke: new ol.style.Stroke({
-                        color: 'yellow',
-                        width: 1
-                    }),
-                    fill: new ol.style.Fill({
-                        color: 'rgba(255, 255, 0, 0.1)'
-                    })
-                })];
-                styles['default'] = [new ol.style.Style({
-                    stroke: new ol.style.Stroke({
-                        color: 'red',
-                        width: 3
-                    }),
-                    fill: new ol.style.Fill({
-                        color: 'rgba(255, 0, 0, 0.1)'
-                    }),
-                    image: image
-                })];
-                return function(feature, resolution) {
-                    return styles[feature.getGeometry().getType()] || styles['default'];
-                };
-                /* jshint +W069 */
-            })();
+            this.undo = function() {
+                this.activeLayer.undo();
+            }
 
-            var source = new ol.source.GeoJSON(
-                /** @type {olx.source.GeoJSONOptions} */ ({
-                    object: {
-                        'type': 'FeatureCollection',
-                        'crs': {
-                            'type': 'name',
-                            'properties': {
-                                'name': 'EPSG:3857'
-                            }
-                        },
-                        'features': [
-                            {
-                                'type': 'Feature',
-                                'geometry': {
-                                    'type': 'Point',
-                                    'coordinates': [487.34909155626224, 528.7831113832901]
-                                },
-                                'style':{
-                                    'fill': {
-                                        'color': "rgba(220, 150, 30)"
-                                    },
-                                    'stroke': {
-                                        'color': "rgba(150, 150, 30)",
-                                        'width': 1
-                                    }
-                                }
-                            },
-                            {
-                                'type': 'Feature',
-                                'geometry': {
-                                    'type': 'MultiPoint',
-                                    'coordinates': [[727.9740915562622, 433.8178336055123], [717.0365915562622, 377.5678336055123]]
-                                },
-                                'style':{
-                                    'fill': {
-                                        'color': "rgba(220, 150, 30)"
-                                    },
-                                    'stroke': {
-                                        'color': "rgba(150, 150, 30)",
-                                        'width': 1
-                                    }
-                                }
-                            },
-                            {
-                                'type': 'Feature',
-                                'geometry': {
-                                    'type': 'LineString',
-                                    'coordinates': [[335.2986052686324, 149.7442083623813], [214.98610526863243, 290.3692083623813], [146.23610526863246, 284.1192083623814], [36.8611052686324, 123.1817083623813], [56.95039098291818, 57.5567083623813], [124.13789098291818, 66.9317083623813], [189.76289098291818, 76.3067083623813], [233.51289098291818, 76.3067083623813], [339.7628909829182, 80.9942083623813], [338.2003909829182, 145.0567083623813]]
-                                },
-                                'style':{
-                                    'fill': {
-                                        'color': "rgba(220, 150, 30)"
-                                    },
-                                    'stroke': {
-                                        'color': "rgba(150, 150, 30)",
-                                        'width': 1
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }));
+            this.redo = function() {
+                this.activeLayer.redo();
+            }
 
-            // Vector Layer
-            this.testVectorLayer = new ol.layer.Vector({
-                source: source,
-                style: styleFunction
-            });
+            this.deleteSelectedFeatures = function() {
+                this.activeLayer.deleteSelectedFeatures();
+            }
 
             // Map OverlayStyle
             this.overlayStyle = (function() {
@@ -558,7 +475,7 @@ define([
                 //featureOverlay.setMap(this.map);
 
                 var draw = new ol.interaction.DrawWithShapes({
-                        features: this.testVectorLayer.getSource_().getFeatures(),
+                        features: this.activeLayer.getSource_().getFeatures(),
                         type: 'Polygon'
                     });
                 this.map.addInteraction(draw);
@@ -569,7 +486,7 @@ define([
                         this.map.removeInteraction(draw);
                         //featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
-                    }, this.testVectorLayer);
+                    }, this.activeLayer);
             }
 
             this.activateArrowDrawing = function() {
@@ -597,7 +514,7 @@ define([
                 //featureOverlay.setMap(this.map);
 
                 var draw = new ol.interaction.DrawWithShapes({
-                    features: this.testVectorLayer.getSource_().getFeatures(),
+                    features: this.activeLayer.getSource_().getFeatures(),
                     type: 'Polygon',
                     shapeType: 'Arrow'
                 });
@@ -609,7 +526,7 @@ define([
                         this.map.removeInteraction(draw);
                         //featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
-                    }, this.testVectorLayer);
+                    }, this.activeLayer);
             }
 
             this.exportCanvas = function(encoding) {
@@ -635,7 +552,7 @@ define([
                         this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
                     }*/
 
-                    this.testVectorLayer.beforeFeatureModified(feature);
+                    this.activeLayer.beforeFeatureModified(feature);
                 }, this);
 
             this.modifyInteraction.on("modifyend",
@@ -643,7 +560,7 @@ define([
                     var feature = evt.featureCollection.getArray()[0];
                     /*this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
                     this.currentUndoStep = this.undoSteps - 1;*/
-                    this.testVectorLayer.featureModified(feature);
+                    this.activeLayer.featureModified(feature);
                 }, this);
 
 
@@ -686,7 +603,7 @@ define([
             // Instantiating ol map
             this.map = new ol.Map({
                 interactions: ol.interaction.defaults().extend([this.selectInteraction, this.modifyInteraction]),
-                layers: [this.baseImageLayer, this.testVectorLayer],
+                layers: [this.baseImageLayer],
                 target: this.mapDiv,
                 view: this.mapView
             });
