@@ -79,6 +79,10 @@ define([
                 olLayer.setVisible(object.visible);
             }
 
+            this.layerRowClicked = function(rowIndex) {
+                this.activeLayer = this.layerStore.getOLLayerReference(this.layerStore.data[rowIndex]);
+            }
+
             /**
              * Attaches history functionality to layer by initializing memory store
              * The expected format for history stack record is as:

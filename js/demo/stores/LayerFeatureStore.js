@@ -7,6 +7,12 @@ function(declare, JsonRest, Memory){
                 id: 1,
                 title: "Layer 01",
                 visible: true,
+                style: {
+                    stroke: {
+                        color: 'rgba(210, 140, 60, 1)',
+                        width: 3
+                    }
+                },
                 features: [
                     {
                         type: 'Feature',
@@ -62,6 +68,12 @@ function(declare, JsonRest, Memory){
                 id: 2,
                 title: "Layer 02",
                 visible: true,
+                style: {
+                    stroke: {
+                        color: 'rgba(80, 200, 20, 1)',
+                        width: 2
+                    }
+                },
                 features: [
                     {
                         type: 'Feature',
@@ -122,8 +134,8 @@ function(declare, JsonRest, Memory){
                 styles['Point'] = [new ol.style.Style({image: image})];
                 styles['Polygon'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
-                        color: 'blue',
-                        width: 3
+                        color: layer.style && layer.style.stroke && layer.style.stroke.color || 'blue',
+                        width: layer.style && layer.style.stroke && layer.style.stroke.width ||  3
                     }),
                     fill: new ol.style.Fill({
                         color: 'rgba(0, 0, 255, 0.1)'
@@ -146,8 +158,8 @@ function(declare, JsonRest, Memory){
                 })];
                 styles['default'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
-                        color: 'red',
-                        width: 3
+                        color: layer.style && layer.style.stroke && layer.style.stroke.color || 'red',
+                        width: layer.style && layer.style.stroke && layer.style.stroke.width || 3
                     }),
                     fill: new ol.style.Fill({
                         color: 'rgba(255, 0, 0, 0.1)'
