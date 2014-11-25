@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<link rel="stylesheet" type="text/css" href="js/dijit/themes/claro/claro.css">
+        <link rel="stylesheet" type="text/css" href="js/dojox/grid/resources/claroGrid.css">
         <link rel="stylesheet" type="text/css" href="css/ol.css">
         <link rel="stylesheet" type="text/css" href="css/main.css">
 
@@ -26,19 +27,23 @@
 		<script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
 
         <script type="text/javascript">
-            var layerStore, widgetDebug = null; // For Debugging
-            require(["dojo/parser",
-                    "dijit/layout/ContentPane",
-                    "dijit/layout/BorderContainer",
-                    "dijit/registry",
-                    "dojo/_base/lang",
-                    "dojo/data/ItemFileReadStore",
-                    "dojox/grid/DataGrid",
-                    "demo/widget/MapWidget",
-                    "dojo/ready",
-                    "dojo/domReady!"],
-                    function(parser, ContentPane, BorderContainer, registry, lang, ItemFileReadStore, DataGrid, MapWidget, ready) {
-
+            var layerStore, layerGrid, widgetDebug = null; // For Debugging
+            require([
+                        "dojo/parser",
+                        "dijit/layout/ContentPane",
+                        "dijit/layout/BorderContainer",
+                        "dijit/registry",
+                        "dojo/_base/lang",
+                        "dojox/grid/DataGrid",
+                        "demo/widget/MapWidget",
+                        "demo/stores/LayerFeatureStore",
+                        "dojo/data/ObjectStore",
+                        "dojo/store/Observable",
+                        "dojo/request",
+                        "dojo/ready",
+                        "dojo/domReady!"
+                    ],
+                    function(parser, ContentPane, BorderContainer, registry, lang, DataGrid, MapWidget, LayerFeatureStore, ObjectStore, Observable, request, ready) {
                         parser.parse();
 
                         ready(function(){
@@ -53,21 +58,32 @@
                                     exportToPngButton = registry.byId("exportToPngButtonId"),
                                     exportToJpgButton = registry.byId("exportToJpgButtonId");
 
-                            layerStore = new ItemFileReadStore({
-                                url: 'data/layers-features.json'
+                            layerStore = new Observable(new LayerFeatureStore());
+                            mapWidget.processLayerStore(layerStore);
+
+                            layerGrid = new DataGrid({
+                                store: dataStore = new ObjectStore({objectStore: layerStore}),
+                                structure: [
+                                    {name:"Layer", field:"title", width: "120px"},
+                                    {name:"Visible", field:"visible", width: "50px", type: dojox.grid.cells.Bool, editable: true}
+                                ]
+                            }, "layerGridDiv"); // make sure you have a target HTML element with this id
+                            layerGrid.startup();
+                            layerGrid.getRowNode(0).click();
+
+                            layerGrid.on("rowClick", function(evt){
+                                layerStore.notify(layerStore.data[evt.rowIndex], layerStore.data[evt.rowIndex].id);
                             });
 
-                            var layer = mapWidget.testVectorLayer;
-                            layer.map = mapWidget.map;
-                            layer.selectInteraction = mapWidget.selectInteraction;
+                            layerGrid.on("rowClick", function(evt){
+                                mapWidget.layerRowClicked(evt.rowIndex);
+                            });
 
-                            mapWidget.initializeLayerForCommandHistory(layer);
+                            undoButton.on('click', lang.hitch(mapWidget, 'undo'));
 
-                            undoButton.on('click', lang.hitch(layer, 'undo'));
+                            redoButton.on('click', lang.hitch(mapWidget, 'redo'));
 
-                            redoButton.on('click', lang.hitch(layer, 'redo'));
-
-                            deleteButton.on('click', lang.hitch(layer, 'deleteSelectedFeatures'));
+                            deleteButton.on('click', lang.hitch(mapWidget, 'deleteSelectedFeatures'));
 
                             drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
 
@@ -99,14 +115,7 @@
                     data-dojo-type="dijit/layout/ContentPane"
                     data-dojo-props="region: 'leading', splitter: true">
 
-                    <table data-dojo-type="dojox/grid/DataGrid">
-                        <thead>
-                        <tr>
-                            <th field="fieldName" width="100px">Layer</th>
-                            <th field="fieldName" width="50px">Visible</th>
-                        </tr>
-                        </thead>
-                    </table>
+                   <div id="layerGridDiv"></div>
                 </div>
 
                 <div class="centerPanel"

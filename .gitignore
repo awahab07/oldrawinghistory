@@ -14,6 +14,22 @@ js/dijit
 js/dijit/*
 js/dijit/**/*
 
+js/xstyle
+js/xstyle/*
+js/xstyle/**/*
+
+js/put-selector
+js/put-selector/*
+js/put-selector/**/*
+
+js/dstore
+js/dstore/*
+js/dstore/**/*
+
+js/dgrid
+js/dgrid/*
+js/dgrid/**/*
+
 js/util
 js/util/*
 js/util/**/*

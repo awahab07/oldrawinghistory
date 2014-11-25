@@ -550,11 +550,6 @@ define([
             this.modifyInteraction.on("modifystart",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
-                    /*
-                    var queryResult = this.geometryHistoryStore.query({fid: feature.fid});
-                    if(!queryResult.total) {
-                        this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    }*/
 
                     this.activeLayer.beforeFeatureModified(feature);
                 }, this);
@@ -562,8 +557,6 @@ define([
             this.modifyInteraction.on("modifyend",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
-                    /*this.geometryHistoryStore.add({id: ++this.undoSteps, fid: feature.fid, feature: feature, geometry: feature.getGeometry().clone()});
-                    this.currentUndoStep = this.undoSteps - 1;*/
                     this.activeLayer.featureModified(feature);
                 }, this);
 
