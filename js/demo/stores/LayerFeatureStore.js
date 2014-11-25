@@ -9,7 +9,7 @@ function(declare, JsonRest, Memory){
                 visible: true,
                 style: {
                     stroke: {
-                        color: 'rgba(210, 140, 60, 1)',
+                        color: 'rgba(250, 100, 60, 1)',
                         width: 3
                     }
                 },
