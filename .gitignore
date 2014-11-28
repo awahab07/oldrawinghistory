@@ -33,3 +33,7 @@ js/dgrid/**/*
 js/util
 js/util/*
 js/util/**/*
+
+js/ol3
+js/ol3/*
+js/ol3/**/*

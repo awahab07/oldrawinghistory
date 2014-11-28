@@ -18,38 +18,20 @@ ol.interaction.ShapeType = {
     ARROW: 'Arrow'
 };
 
+ol.interaction.ShapeManager = function(shape) {
 
-
-/**
- * @classdesc
- * Interaction that allows drawing geometries with provision of custom shapes.
- *
- * @constructor
- * @extends {ol.interaction.Draw}
- * @fires ol.DrawEvent
- * @param {olx.interaction.DrawOptions} options Options.
- * @api stable
- */
-ol.interaction.DrawWithShapes = function(options) {
-    goog.base(this, options);
-    
-	/**
-	 * Custom Shape type.
-	 * @type {ol.geom.GeometryType}
-	 * @private
-	 */
-	this.shapeType_ = options.shapeType;
-
-	/**
-	 *
-	 */
-	this.getSketchFeature_ = function(shapeType, coordinates) {
+    /**
+     * Calculates the sketch of custom shape and returns coordinates of desired shape based on start and end drawing coordinates
+     * @param  {Arry of ol.Coordinate} coordinates
+     * @return {Array of Array of ol.Coordinate} the calculated coordinates of custom shape based on drawig pointer position
+     */
+    this.getSketchFeature = function(coordinates) {
         if(this.testAngle==undefined)this.testAngle = 0;
         else this.testAngle++;
         console.log("test angle: ", this.testAngle );
-		switch(shapeType) {
-			case ol.interaction.ShapeType.ARROW:
-				goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
+        switch(shape) {
+            case ol.interaction.ShapeType.ARROW:
+                goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
                 var startX = coordinates[0][0][0],
                     startY = coordinates[0][0][1],
                     endX = coordinates[0][coordinates[0].length-1][0],
@@ -77,12 +59,71 @@ ol.interaction.DrawWithShapes = function(options) {
                 ]];
 
                 return shapePolygonCoordinates;
-			break;
-		}
-	}
+            break;
+        }
+    }
+
 
     /**
-     *@inheritDoc
+     * Create and return the drawing pointer Point Geometry
+     * @param {ol.MapBrowserEvent} event Event.
+     * @private
+     */
+    this.getSketchPoint = function(coordinates) {
+        switch(shape) {
+            case ol.interaction.ShapeType.ARROW:
+                return new ol.Feature(new ol.geom.Point(coordinates));
+            break;
+        }
+    }
+}
+
+/**
+ * @classdesc
+ * Interaction that allows drawing geometries with provision of custom shapes.
+ *
+ * @constructor
+ * @extends {ol.interaction.Draw}
+ * @fires ol.DrawEvent
+ * @param {olx.interaction.DrawOptions} options Options.
+ * @api stable
+ */
+ol.interaction.DrawWithShapes = function(options) {
+    goog.base(this, options);
+    
+	/**
+	 * Custom Shape type.
+	 * @type {ol.geom.GeometryType}
+	 * @private
+	 */
+	this.shapeType_ = options.shapeType;
+
+    /**
+     * Custom Shape Manager, to return definitions of drawings
+     */
+    this.shapeManager_ = new ol.interaction.ShapeManager(this.shapeType_);
+
+    /**
+     * @inheritDoc
+     */
+    this.handleMapBrowserEvent = function(event) {
+      var map = event.map;
+      if (!map.isDef()) {
+        return true;
+      }
+      var pass = true;
+      if (event.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
+        pass = this.handlePointerMove_(event);
+      } else if (event.type === ol.MapBrowserEvent.EventType.DBLCLICK) {
+        pass = false;
+      } else if (this.shapeType_ && event.type === ol.MapBrowserEvent.EventType.POINTERDRAG) {
+        pass = this.handlePointerMove_(event);
+      }
+      return (goog.base(this, 'handleMapBrowserEvent', event) && pass);
+    };
+
+    /**
+     * @inheritDoc
      */
     this.handlePointerUp = function(event) {
         var downPx = this.downPx_;
@@ -106,6 +147,23 @@ ol.interaction.DrawWithShapes = function(options) {
             pass = false;
         }
         return pass;
+    };
+
+
+    /**
+     * Accounts for custom shape pointer
+     * @inheritDoc
+     */
+    this.createOrUpdateSketchPoint_ = function(event) {
+      var coordinates = event.coordinate.slice();
+      if (goog.isNull(this.sketchPoint_)) {
+        this.sketchPoint_ = this.shapeType_ && this.shapeManager_.getSketchPoint(coordinates) || new ol.Feature(new ol.geom.Point(coordinates));
+        this.updateSketchFeatures_();
+      } else {
+        var sketchPointGeom = this.sketchPoint_.getGeometry();
+        goog.asserts.assertInstanceof(sketchPointGeom, ol.geom.Point);
+        sketchPointGeom.setCoordinates(coordinates);
+      }
     };
 
 
@@ -140,7 +198,7 @@ ol.interaction.DrawWithShapes = function(options) {
             if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
                 potentiallyDone = this.sketchPolygonCoords_[0].length > 2;
-                potentiallyFinishCoordinates = this.getSketchFeature_(ol.interaction.ShapeType.ARROW, this.sketchPolygonCoords_);
+                potentiallyFinishCoordinates = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
                 potentiallyDone = geometry.getCoordinates().length > 2;
@@ -184,7 +242,7 @@ ol.interaction.DrawWithShapes = function(options) {
                 this.sketchLine_ = new ol.Feature(new ol.geom.LineString([start.slice(),
                     start.slice()]));
                 this.sketchPolygonCoords_ = [[start.slice(), start.slice()]];
-                this.sketchPolygonCoords_ = this.getSketchFeature_(ol.interaction.ShapeType.ARROW, this.sketchPolygonCoords_);
+                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
                 geometry = new ol.geom.Polygon(this.sketchPolygonCoords_);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 geometry = new ol.geom.LineString([start.slice(), start.slice()]);
@@ -223,7 +281,7 @@ ol.interaction.DrawWithShapes = function(options) {
         	if (this.shapeType_ === ol.interaction.ShapeType.ARROW) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #148");
                 coordinates = [this.sketchPolygonCoords_[0][0], coordinate];
-                this.sketchPolygonCoords_ = this.getSketchFeature_(ol.interaction.ShapeType.ARROW, [coordinates]);
+                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature([coordinates]);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #149");
                 coordinates = geometry.getCoordinates();
@@ -267,7 +325,7 @@ ol.interaction.DrawWithShapes = function(options) {
             this.sketchPolygonCoords_[0].push(coordinate.slice());
             goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
             geometry.setCoordinates(this.sketchPolygonCoords_);
-            this.sketchPolygonCoords_ = this.getSketchFeature_(ol.interaction.ShapeType.ARROW, this.sketchPolygonCoords_);
+            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
         } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
             this.finishCoordinate_ = coordinate.slice();
             goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
@@ -302,8 +360,8 @@ ol.interaction.DrawWithShapes = function(options) {
             // we force the replacement by the first point
             //this.sketchPolygonCoords_[0].pop();
             //this.sketchPolygonCoords_[0].push(this.sketchPolygonCoords_[0][0]);
-            this.sketchPolygonCoords_ = this.getSketchFeature_(ol.interaction.ShapeType.ARROW, this.sketchPolygonCoords_);
-            geometry.setCoordinates(this.sketchPolygonCoords_);
+            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
+            //geometry.setCoordinates(this.sketchPolygonCoords_);
             coordinates = geometry.getCoordinates();
             sketchFeature.setGeometry(geometry);
         } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
