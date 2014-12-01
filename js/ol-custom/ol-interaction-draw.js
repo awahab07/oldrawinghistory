@@ -26,9 +26,6 @@ ol.interaction.ShapeManager = function(shape) {
      * @return {Array of Array of ol.Coordinate} the calculated coordinates of custom shape based on drawig pointer position
      */
     this.getSketchFeature = function(coordinates) {
-        if(this.testAngle==undefined)this.testAngle = 0;
-        else this.testAngle++;
-        console.log("test angle: ", this.testAngle );
         switch(shape) {
             case ol.interaction.ShapeType.ARROW:
                 goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
@@ -42,12 +39,9 @@ ol.interaction.ShapeManager = function(shape) {
 
                 var m = (y2-y1)/(x2-x1)+1, dividerX = 1/Math.sqrt(1+(m*m)), dividerY = m/Math.sqrt(1+(m*m));
 
-                var y3 = startY, y2 = startY - distance/3, y1 = endY,
+                var y3 = startY, y2 = startY - distance/3*dy/Math.abs(dy), y1 = endY,
                     x1 = startX - distance/3, x2 = startX - distance/6, x3 = startX, x4 = startX + distance/6, x5 = startX + distance/ 3;
 
-                /*var rightOuterTip = [x1+distance/2*dividerX, y1+distance/2*dividerY],
-                    rightInnerTip = [rightOuterTip[0] - distance/6*Math.cos(0), rightOuterTip[1] - distance/6*Math.sin(0)],
-                    rightBottomTip = [rightInnerTip[0] - distance/6*Math.cos(269), rightInnerTip[1] - distance/6*Math.sin(269)];*/
                 var shapePolygonCoordinates = [[
                     [x3, y3],
                     [x5, y2],

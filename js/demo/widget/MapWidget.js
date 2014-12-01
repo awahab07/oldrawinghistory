@@ -450,7 +450,7 @@ define([
                 /* jshint +W069 */
             })();
 
-            this.selectInteraction = new ol.interaction.Select({
+            this.selectInteraction = new ol.interaction.SelectWithMove({
                 style: this.overlayStyle
             });
 
@@ -599,7 +599,7 @@ define([
 
             // Instantiating ol map
             this.map = new ol.Map({
-                interactions: ol.interaction.defaults().extend([this.selectInteraction, this.modifyInteraction]),
+                interactions: ol.interaction.defaults().extend([this.selectInteraction/*, this.modifyInteraction*/]),
                 layers: [this.baseImageLayer],
                 target: this.mapDiv,
                 view: this.mapView

@@ -94656,7 +94656,6 @@ ol.interaction.Draw.prototype.handleMapBrowserEvent = function(event) {
  * @return {boolean} Pass the event to other interactions.
  */
 ol.interaction.Draw.prototype.handlePointerDown = function(event) {
-    console.log("Pointer Down");
   if (this.condition_(event)) {
     this.downPx_ = event.pixel;
     return true;
