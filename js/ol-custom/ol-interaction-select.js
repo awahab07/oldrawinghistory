@@ -64,7 +64,7 @@ ol.interaction.SelectWithMove = function(options) {
                 var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
                 return [translatedMathCoordinate.x, translatedMathCoordinate.y];
             }, this) ];
-        } else if(!goog.isDef(coordinates[0][0]))) {
+        } else if(!goog.isDef(coordinates[0][0])) {
             coordinates = goog.array.map([coordinates], function(olCoordinate) {
                 var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
                 return [translatedMathCoordinate.x, translatedMathCoordinate.y];
