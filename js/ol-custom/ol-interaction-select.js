@@ -3,13 +3,65 @@
  * Script to extend and override ol.interaction.Select to incorporate moving of features while dragging.
  */
 
+goog.provide('ol.MoveEvent');
+goog.provide('ol.MoveEventType');
 goog.provide('ol.interaction.SelectWithMove');
 
 goog.require('ol.interaction.Select');
 goog.require('ol.MapBrowserEvent.EventType');
 goog.require('ol.geom.GeometryLayout');
+goog.require('ol.Feature');
 goog.require('goog.math.Coordinate');
 goog.require('goog.array.map');
+goog.require('goog.events.Event');
+
+
+
+
+/**
+ * @enum {string}
+ */
+ol.MoveEventType = {
+    /**
+     * Triggered upon feature move starts
+     * @event ol.MoveEvent#movestart
+     * @api experimental
+     */
+    MOVESTART: 'movestart',
+
+    /**
+     * Triggered upon feature move ends
+     * @event ol.ModifyEvent#moveend
+     * @api experimental
+     */
+    MOVEEND: 'moveend'
+};
+
+
+
+/**
+ * @classdesc
+ * Events emitted by {@link ol.interaction.Modify} instances are instances of
+ * this type.
+ *
+ * @constructor
+ * @extends {goog.events.Event}
+ * @implements {oli.MoveEvent}
+ * @param {ol.MoveEventType} type Type.
+ * @param {ol.Feature} feature The feature drawn.
+ */
+ol.MoveEvent = function(type, featureCollection) {
+    goog.base(this, type);
+
+    /**
+     * Collection of features being modified.
+     * @type {ol.Feature}
+     * @api stable
+     */
+    this.featureCollection = featureCollection;
+};
+goog.inherits(ol.MoveEvent, goog.events.Event);
+
 
 
 /**
@@ -31,6 +83,24 @@ ol.interaction.SelectWithMove = function(options) {
 
     this.mapDefaultCursorStyle_ = null;
 
+
+    /**
+     * dispatchFeatureEvent: dispatching feature move events while assigning fid
+     * @param type feature type, features featureCollection
+     */
+    this.dispatchFeatureEvent = function(type, features) {
+        features.forEach(function(feature){
+            if(feature.fid == undefined || !feature.fid) {
+                feature.fid = goog.getUid(feature);
+                feature.setId(feature.fid);
+            }
+        });
+
+        this.dispatchEvent(new ol.MoveEvent(type,
+            features));
+    }
+
+    
     /**
      * Makes the mouse cursor to "move" style
      */
@@ -59,21 +129,24 @@ ol.interaction.SelectWithMove = function(options) {
         var differenceMathCoordinate = goog.math.Coordinate.difference(interaction.olCoordToMathCoord_(toCoordinate), interaction.olCoordToMathCoord_(fromCoordinate));
 
         var coordinates = feature.getGeometry().getCoordinates();
-        if(goog.isDef(coordinates[0][0][0])) {
-            coordinates = [ goog.array.map(coordinates[0], function(olCoordinate) {
-                var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-            }, this) ];
-        } else if(!goog.isDef(coordinates[0][0])) {
+        if(goog.isDef(coordinates[0][0])) {
+            if(goog.isDef(coordinates[0][0][0])) {
+                coordinates = [ goog.array.map(coordinates[0], function(olCoordinate) {
+                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
+                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
+                }, this) ];
+            } else {
+                coordinates = goog.array.map(coordinates, function(olCoordinate) {
+                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
+                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
+                }, this);
+            }
+            
+        } else {
             coordinates = goog.array.map([coordinates], function(olCoordinate) {
                 var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
                 return [translatedMathCoordinate.x, translatedMathCoordinate.y];
             }, this)[0];
-        } else {
-            coordinates = goog.array.map(coordinates, function(olCoordinate) {
-                var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-            }, this);
         }
         
         feature.getGeometry().setCoordinates(coordinates);
@@ -92,8 +165,12 @@ ol.interaction.SelectWithMove = function(options) {
             }
 
             if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
-                    this.downPx_ = null;
-                    this.draggingFeature_ = null;
+                var featureCollection = new ol.Collection();
+                featureCollection.push(this.draggingFeature_);
+                this.dispatchFeatureEvent(ol.ModifyEventType.MOVEEND, featureCollection);
+
+                this.downPx_ = null;
+                this.draggingFeature_ = null;
             }
             
             return false;
@@ -139,6 +216,10 @@ ol.interaction.SelectWithMove = function(options) {
                     this.downPx_ = mapBrowserEvent.pixel;
                     this.fromPx_ = mapBrowserEvent.pixel;
                     this.draggingFeature_ = feature;
+
+                    var featureCollection = new ol.Collection();
+                    featureCollection.push(this.draggingFeature_);
+                    this.dispatchFeatureEvent(ol.ModifyEventType.MOVESTART, featureCollection);
                 }
             } else {
                 this.changeCursorToDefault_();

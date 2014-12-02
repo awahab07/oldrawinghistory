@@ -487,8 +487,8 @@ define([
                 draw.on("drawend",
                     function(evt){
                         this.getSource_().addFeature(evt.feature);
-                        this.map.removeInteraction(draw);
-                        //featureOverlay.removeFeature(evt.feature);
+                        //this.map.removeInteraction(draw);
+                        featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
                     }, this.activeLayer);
             }
@@ -533,6 +533,46 @@ define([
                     }, this.activeLayer);
             }
 
+            this.activateLineArrowDrawing = function() {
+                var featureOverlay = new ol.FeatureOverlay({
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(255, 200, 150, 0.2)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: '#eeff33',
+                            width: 1
+                        }),
+                        image: new ol.style.Icon({
+                            src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
+                            width: 18,
+                            height: 18,
+                            opacity: 0.8,
+                            rotation: Math.PI,
+                            xOffset: -3,
+                            yOffset: -2
+                        })
+
+                    })
+                });
+                //featureOverlay.setMap(this.map);
+
+                var draw = new ol.interaction.DrawWithShapes({
+                    features: this.activeLayer.getSource_().getFeatures(),
+                    type: 'Polygon',
+                    shapeType: 'LineArrow'
+                });
+                this.map.addInteraction(draw);
+
+                draw.on("drawend",
+                    function(evt){
+                        this.getSource_().addFeature(evt.feature);
+                        this.map.removeInteraction(draw);
+                        //featureOverlay.removeFeature(evt.feature);
+                        this.featureCreated(evt.feature);
+                    }, this.activeLayer);
+            }
+
             this.exportCanvas = function(encoding) {
                 this.map.once('postcompose', function(event) {
                     var canvas = event.context.canvas;
@@ -546,6 +586,7 @@ define([
                 features: this.selectInteraction.getFeatures(),
                 style: this.overlayStyle
             });
+
 
             this.modifyInteraction.on("modifystart",
                 function(evt){
@@ -561,6 +602,19 @@ define([
                 }, this);
 
 
+            this.selectInteraction.on("movestart",
+                function(evt){
+                    console.log("movestart");
+                    var feature = evt.featureCollection.getArray()[0];
+
+                    this.activeLayer.beforeFeatureModified(feature);
+                }, this);
+
+            this.selectInteraction.on("moveend",
+                function(evt){
+                    var feature = evt.featureCollection.getArray()[0];
+                    this.activeLayer.featureModified(feature);
+                }, this);
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({

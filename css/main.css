@@ -59,6 +59,10 @@ clear:both;
     background-image: url("../js/demo/widget/images/icon-arrow.png");
 }
 
+.drawLineArrowButton {
+    background-image: url("../js/demo/widget/images/icon-line-arrow.gif");
+}
+
 .exportToPngButton {
     background-image: url("../js/demo/widget/images/icon-png.png");
 }

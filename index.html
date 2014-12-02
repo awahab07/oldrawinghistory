@@ -56,6 +56,7 @@
                                     deleteButton = registry.byId("mapDeleteButtonId"),
                                     drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
                                     drawArrowButton = registry.byId("mapArrowDrawButtonId"),
+                                    //drawLineArrowButton = registry.byId("mapLineArrowDrawButtonId"),
                                     exportToPngButton = registry.byId("exportToPngButtonId"),
                                     exportToJpgButton = registry.byId("exportToJpgButtonId");
 
@@ -89,6 +90,8 @@
                             drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
 
                             drawArrowButton.on('click', lang.hitch(mapWidget, 'activateArrowDrawing'));
+
+                            //drawLineArrowButton.on('click', lang.hitch(mapWidget, 'activateLineArrowDrawing'));
 
                             exportToPngButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/png'));
 
@@ -146,6 +149,9 @@
 
                                 <div id="mapArrowDrawButtonId" data-dojo-attach-point="arrowDrawButton" data-dojo-type="dijit/form/Button"
                                      data-dojo-props="iconClass:'dijitEditorIcon drawArrowButton', showLabel:false">Draw Arrow</div>
+
+                                <!-- <div id="mapLineArrowDrawButtonId" data-dojo-attach-point="lineArrowDrawButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon drawLineArrowButton', showLabel:false">Draw Line Arrow</div> -->
 
                                 <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon exportToolbarButton', showLabel:false">
                                     <span>Export</span>
