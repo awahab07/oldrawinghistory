@@ -152,6 +152,28 @@ ol.interaction.SelectWithMove = function(options) {
         feature.getGeometry().setCoordinates(coordinates);
     }
 
+    this.getResizeBox_ = function(feature) {
+      var extentCoordinates = feature.getGeometry().getExtent(),
+          resizePolygonCoordinates = [[
+            [ extentCoordinates[0], extentCoordinates[1] ],
+            [ extentCoordinates[0], extentCoordinates[3] ],
+            [ extentCoordinates[2], extentCoordinates[3] ],
+            [ extentCoordinates[2], extentCoordinates[1] ]
+          ]];
+      var resizePolygon = new ol.geom.Polygon(resizePolygonCoordinates, ol.geom.GeometryLayout.XY),
+          resizeBoxFeature = new ol.Feature({geometry: resizePolygon});
+      var boxFeatureStyle = new ol.style.Style({
+          fill: new ol.style.Fill({color: 'transparent'}),
+          stroke: new ol.style.Stroke({
+              color: '#0000FF',
+              width: 0.5,
+              lineDash: [4, 4]
+          })
+      })
+      resizeBoxFeature.setStyle(boxFeatureStyle);
+      return resizeBoxFeature;
+    }
+
     /**
      * @inheritDoc
      */
@@ -212,6 +234,7 @@ ol.interaction.SelectWithMove = function(options) {
 
             if(goog.isDef(feature)) {
                 this.changeCursorToMove_();
+                features.push(this.getResizeBox_(feature));
                 if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERDOWN) {
                     this.downPx_ = mapBrowserEvent.pixel;
                     this.fromPx_ = mapBrowserEvent.pixel;
