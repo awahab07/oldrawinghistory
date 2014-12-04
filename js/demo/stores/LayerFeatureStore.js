@@ -71,7 +71,7 @@ function(declare, JsonRest, Memory){
                 style: {
                     stroke: {
                         color: 'rgba(80, 200, 20, 1)',
-                        width: 2
+                        width: 6
                     }
                 },
                 features: [

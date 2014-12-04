@@ -100,7 +100,6 @@ ol.interaction.SelectWithMove = function(options) {
             features));
     }
 
-    
     /**
      * Makes the mouse cursor to "move" style
      */
@@ -118,13 +117,25 @@ ol.interaction.SelectWithMove = function(options) {
         this.map_.getViewport().style.cursor = this.mapDefaultCursorStyle_;
     }
 
+    /**
+     * Wrapping the ol.Coordinate to goog.math.Coordinate to allow matrix operations
+     * @param  {ol.Coordinate} olCoordinate The coordinate to wrap into a math coordinate
+     * @return {goog.math.Coordinate} returned new math coordinate
+     */
     this.olCoordToMathCoord_ = function(olCoordinate) {
         return new goog.math.Coordinate(olCoordinate[0], olCoordinate[1]);
     }
 
-    this.translateFeature_ = function(feature, formPx, toPx) {
+    /**
+     * Translate the Feature by applying ol.math.Coordinate.translate on feature coordinates by first converting
+     * them to goog.math.Coordinate
+     * @param  {ol.Feature} feature The feature to translate to
+     * @param  {ol.Pixel} fromPx Pixel from which the translation should start.
+     * @param  {ol.Pixel} toPx Pixel at which the translation should end.
+     */
+    this.translateFeature_ = function(feature, fromPx, toPx) {
         var interaction = this,
-            fromCoordinate = this.map_.getCoordinateFromPixel(formPx),
+            fromCoordinate = this.map_.getCoordinateFromPixel(fromPx),
             toCoordinate = this.map_.getCoordinateFromPixel(toPx);
         var differenceMathCoordinate = goog.math.Coordinate.difference(interaction.olCoordToMathCoord_(toCoordinate), interaction.olCoordToMathCoord_(fromCoordinate));
 
@@ -152,7 +163,13 @@ ol.interaction.SelectWithMove = function(options) {
         feature.getGeometry().setCoordinates(coordinates);
     }
 
-    this.getResizeBox_ = function(feature) {
+    /**
+     * getSelectBoxFeature_ returns a feature to display a dashed rectangle around the extent of the selected
+     * feature to depict the feature is selected and can be moved by dragging
+     * @param  {ol.Feature} feature Fature to use for determining coordinates of SelectBox Polygon (Rectangle)
+     * @return {ol.Feature}         new feature that represents the bouding rectangle
+     */
+    this.getSelectBoxFeature_ = function(feature) {
       var extentCoordinates = feature.getGeometry().getExtent(),
           resizePolygonCoordinates = [[
             [ extentCoordinates[0], extentCoordinates[1] ],
@@ -234,7 +251,7 @@ ol.interaction.SelectWithMove = function(options) {
 
             if(goog.isDef(feature)) {
                 this.changeCursorToMove_();
-                features.push(this.getResizeBox_(feature));
+                features.push(this.getSelectBoxFeature_(feature));
                 if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERDOWN) {
                     this.downPx_ = mapBrowserEvent.pixel;
                     this.fromPx_ = mapBrowserEvent.pixel;

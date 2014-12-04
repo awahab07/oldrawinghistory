@@ -582,20 +582,20 @@ define([
                 this.map.renderSync();
             }
 
-            this.modifyInteraction = new ol.interaction.ModifyWithEvents({
+            this.manipulateInteraction = new ol.interaction.Manipulate({
                 features: this.selectInteraction.getFeatures(),
                 style: this.overlayStyle
             });
 
 
-            this.modifyInteraction.on("modifystart",
+            this.manipulateInteraction.on("manipulatestart",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
 
                     this.activeLayer.beforeFeatureModified(feature);
                 }, this);
 
-            this.modifyInteraction.on("modifyend",
+            this.manipulateInteraction.on("manipulateend",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
                     this.activeLayer.featureModified(feature);
@@ -653,7 +653,7 @@ define([
 
             // Instantiating ol map
             this.map = new ol.Map({
-                interactions: ol.interaction.defaults().extend([this.selectInteraction/*, this.modifyInteraction*/]),
+                interactions: ol.interaction.defaults().extend([this.manipulateInteraction]),
                 layers: [this.baseImageLayer],
                 target: this.mapDiv,
                 view: this.mapView
