@@ -165,7 +165,12 @@ ol.interaction.Manipulate = function(opt_options) {
 	options.features = this.features_;
     goog.base(this, options);
 
-    // Manipulation state trackers
+    // Manipulation variables
+    this.manipulationLayer_ = new ol.layer.Manipulation();
+    this.layerFilter_ = function(layer) {
+    	return !(goog.isDef(layer.isManipulationLayer) && layer.isManipulationLayer);
+    }
+    
     this.mapDefaultCursorStyle_ = null;
     this.draggingFeature_ = null; // To hold the reference of the feature being dragged
     this.dragFromPx_ = null; // Pixel from which the dragging started
@@ -259,6 +264,8 @@ ol.interaction.Manipulate = function(opt_options) {
             if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
                 this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
                 this.dragFromPx_ = mapBrowserEvent.pixel;
+
+                this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
             }
 
             if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
@@ -266,8 +273,10 @@ ol.interaction.Manipulate = function(opt_options) {
                 //featureCollection.push(this.draggingFeature_);
                 //this.dispatchFeatureEvent(ol.ModifyEventType.MOVEEND, featureCollection);
 
+                //this.manipulationLayer_.removeSelectBoxForFeature(this.draggingFeature_);
+
                 this.dragFromPx_ = null;
-                this.draggingFeature_ = null;
+                //this.draggingFeature_ = null;
             }
             
             return false;
@@ -368,7 +377,7 @@ ol.interaction.Manipulate = function(opt_options) {
 			mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDOWN ||
 			mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERUP ||
 			mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
-			return true;
+				return true;
 		}
 		
 		return false;
@@ -482,7 +491,10 @@ ol.interaction.Manipulate = function(opt_options) {
     }
 
     this.featureSelected_ = function(feature, featureCollection) {
-        featureCollection.push(this.getSelectBoxFeature_(feature));
+    	if(goog.array.indexOf(this.getMap().getLayers().getArray(), this.manipulationLayer_) == -1)
+    		this.getMap().addLayer(this.manipulationLayer_);
+        
+        this.manipulationLayer_.displaySelectBoxForFeature(feature);
         
         this.draggingFeature_ = feature;
 
@@ -490,6 +502,7 @@ ol.interaction.Manipulate = function(opt_options) {
     }
 
     this.featureUnSelected_ = function(feature, featureCollection) {
+    	this.manipulationLayer_.removeSelectBoxForFeature(feature);
     }
 
     // Feature Structured Manipulation Functionality
@@ -540,32 +553,5 @@ ol.interaction.Manipulate = function(opt_options) {
         feature.getGeometry().setCoordinates(coordinates);
     }
 
-    /**
-     * getSelectBoxFeature_ returns a feature to display a dashed rectangle around the extent of the selected
-     * feature to depict the feature is selected and can be moved by dragging
-     * @param  {ol.Feature} feature Fature to use for determining coordinates of SelectBox Polygon (Rectangle)
-     * @return {ol.Feature}         new feature that represents the bouding rectangle
-     */
-    this.getSelectBoxFeature_ = function(feature) {
-      var extentCoordinates = feature.getGeometry().getExtent(),
-          resizePolygonCoordinates = [[
-            [ extentCoordinates[0], extentCoordinates[1] ],
-            [ extentCoordinates[0], extentCoordinates[3] ],
-            [ extentCoordinates[2], extentCoordinates[3] ],
-            [ extentCoordinates[2], extentCoordinates[1] ]
-          ]];
-      var resizePolygon = new ol.geom.Polygon(resizePolygonCoordinates, ol.geom.GeometryLayout.XY),
-          resizeBoxFeature = new ol.Feature({geometry: resizePolygon});
-      var boxFeatureStyle = new ol.style.Style({
-          fill: new ol.style.Fill({color: 'transparent'}),
-          stroke: new ol.style.Stroke({
-              color: '#0000FF',
-              width: 0.5,
-              lineDash: [4, 4]
-          })
-      })
-      resizeBoxFeature.setStyle(boxFeatureStyle);
-      return resizeBoxFeature;
-    }
 };
 goog.inherits(ol.interaction.Manipulate, ol.interaction.Modify);
