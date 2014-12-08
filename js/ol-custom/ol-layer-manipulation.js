@@ -63,6 +63,9 @@ ol.layer.Manipulation = function(opt_options) {
       var scaleRactange = new ol.geom.Polygon(scaleRectangeCoordinates, ol.geom.GeometryLayout.XY),
           scaleRactangeFeature = new ol.Feature({geometry: scaleRactange});
       scaleRactangeFeature.setStyle(this.handlesStyle_);
+
+      scaleRactangeFeature.isHandleFeature = true; // Indication that feature is a manipulation handle
+      scaleRactangeFeature.cursorStyle = "ew-resize";
       
       return scaleRactangeFeature;
   	}

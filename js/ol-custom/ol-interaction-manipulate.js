@@ -259,54 +259,17 @@ ol.interaction.Manipulate = function(opt_options) {
 	 * Checks if Browser Event handled by the Select Functionality of features
 	 */
 	this.handleMapBrowserEventForSelect_ = function(mapBrowserEvent) {
-		// Detecting shape features
-		var shapeFeatureAtEventPixel = this.map_.forEachFeatureAtPixel(mapBrowserEvent.pixel,
-		    function(feature, layer) {
-		      return feature;
-		    }, undefined, this.layerFilter_);
+		// Handle PointerDrag and PointerUp Events for Movement if this.draggingFeature_ is not null
+		if(!goog.isNull(this.draggingFeature_) && !goog.isNull(this.dragFromPx_)) {
+            if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
+                this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+                this.dragFromPx_ = mapBrowserEvent.pixel;
 
-        // Detecting manipulation handler features
-        var handlerFatureAtEventPixel = this.map_.forEachFeatureAtPixel(mapBrowserEvent.pixel,
-		    function(feature, layer) {
-		      return feature;
-		    }, undefined, function(layer){return goog.isDef(layer.isHandlersLayer) && layer.isHandlersLayer;});
+                this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
+            }
 
-		switch(mapBrowserEvent.type) {
-			// Change cursor to "move" if shape feature is detected
-			case ol.MapBrowserEvent.EventType.POINTERMOVE:
-				if(goog.isDefAndNotNull(shapeFeatureAtEventPixel)) {
-					this.changeCursorToMove_();
-				} else {
-					this.changeCursorToDefault_();
-				}
-			break;
-			
-			case ol.MapBrowserEvent.EventType.POINTERDOWN:
-				// Mark the down pixel
-				this.downPx_ = mapBrowserEvent.pixel;
-
-				if(goog.isDefAndNotNull(shapeFeatureAtEventPixel)) {
-					// Mark the Drag Start
-					this.dragFromPx_ = this.downPx_;
-					
-					this.featureSelected_(shapeFeatureAtEventPixel);
-				} else {
-					this.featureUnSelected_(shapeFeatureAtEventPixel);
-				}
-			break;
-
-			case ol.MapBrowserEvent.EventType.POINTERDRAG:
-				// Handle PointerDrag and PointerUp Events for Movement if this.draggingFeature_ is not null
-				if(!goog.isNull(this.draggingFeature_) && !goog.isNull(this.dragFromPx_)) {
-	                this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
-	                this.dragFromPx_ = mapBrowserEvent.pixel;
-
-	                this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
-		        }
-			break;
-
-			case ol.MapBrowserEvent.EventType.POINTERUP:
-				//var featureCollection = new ol.Collection();
+            if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
+                //var featureCollection = new ol.Collection();
                 //featureCollection.push(this.draggingFeature_);
                 //this.dispatchFeatureEvent(ol.ModifyEventType.MOVEEND, featureCollection);
 
@@ -314,9 +277,71 @@ ol.interaction.Manipulate = function(opt_options) {
 
                 this.dragFromPx_ = null;
                 //this.draggingFeature_ = null;
-			break;
+            }
+            
+            return false;
+        }
+
+		var selectFeatures = this.featureOverlayForSelect_.getFeatures();
+
+		// Check whether pointer is over a feature
+		if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
+			// Detecting shape and handle features
+			var manipulateInteraction = this;
+			var shapeOrHandleFeature = this.map_.forEachFeatureAtPixel(
+				mapBrowserEvent.pixel,
+			    function(shapeOrHandleFeature, layer) {
+			      return shapeOrHandleFeature;
+			    }, 
+			    undefined, 
+			    function(layer) {
+			    	return manipulateInteraction.layerFilter_() || goog.isDefAndNotNull(layer.isHandlersLayer);
+			    });
+
+			if(goog.isDef(shapeOrHandleFeature)) {
+				if(goog.isDefAndNotNull(shapeOrHandleFeature.isHandleFeature))
+					this.changeCursorTo_(shapeOrHandleFeature.cursorStyle);
+				else
+					this.changeCursorTo_("move");
+			} else {
+				this.changeCursorToDefault_();
+			}
 		}
 
+		if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDOWN) {
+			this.downPx_ = mapBrowserEvent.pixel;
+			
+			if(this.isInSelectMode_ && !this.isInGeometryModificationMode_) {
+				this.dragFromPx_ = this.downPx_;
+			}
+
+			// Replace the currently selected feature(s) with the feature at the pixel,
+			// or clear the selected feature(s) if there is no feature at the pixel.
+			/** @type {ol.Feature|undefined} */
+			var feature = this.map_.forEachFeatureAtPixel(mapBrowserEvent.pixel,
+			    function(feature, layer) {
+			      return feature;
+			    }, undefined, this.layerFilter_);
+			
+			if (goog.isDef(feature) &&
+			    selectFeatures.getLength() == 1 &&
+			    selectFeatures.item(0) == feature) {
+			  // No change
+			} else {
+				if (selectFeatures.getLength() !== 0) {
+					selectFeatures.clear();
+				}
+				if (goog.isDef(feature)) {
+					if(this.isInGeometryModificationMode_) {
+						selectFeatures.push(feature);
+					}
+					
+					this.featureSelected_(feature);
+				} else {
+					this.featureUnSelected_(feature);
+				}
+			}
+		}
 		return false;
 	};
 
@@ -427,11 +452,11 @@ ol.interaction.Manipulate = function(opt_options) {
 	/**
      * Makes the mouse cursor to "move" style
      */
-    this.changeCursorToMove_ = function() {
+    this.changeCursorTo_ = function(cursorStyle) {
         if(goog.isNull(this.mapDefaultCursorStyle_))
             this.mapDefaultCursorStyle_ = this.map_.getViewport().style.cursor;
         
-        this.map_.getViewport().style.cursor = "move";
+        this.map_.getViewport().style.cursor = goog.isDefAndNotNull(cursorStyle) ? cursorStyle : this.mapDefaultCursorStyle_;
     }
 
     /**
