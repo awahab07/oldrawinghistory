@@ -262,9 +262,14 @@ ol.interaction.Manipulate = function(opt_options) {
 		// Handle PointerDrag and PointerUp Events for Movement if this.draggingFeature_ is not null
 		if(!goog.isNull(this.draggingFeature_) && !goog.isNull(this.dragFromPx_)) {
             if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
-                this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+                // If dragged feature is a handler feature, delegate to manipulation layer
+                if(goog.isDef(this.draggingFeature_.isHandleFeature) && this.draggingFeature_.isHandleFeature) {
+                	this.manipulationLayer_.handleDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+                } else {
+                	this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+                }
+                
                 this.dragFromPx_ = mapBrowserEvent.pixel;
-
                 this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
             }
 
@@ -295,7 +300,7 @@ ol.interaction.Manipulate = function(opt_options) {
 			    }, 
 			    undefined, 
 			    function(layer) {
-			    	return manipulateInteraction.layerFilter_() || goog.isDefAndNotNull(layer.isHandlersLayer);
+			    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlersLayer);
 			    });
 
 			if(goog.isDef(shapeOrHandleFeature)) {
@@ -466,24 +471,27 @@ ol.interaction.Manipulate = function(opt_options) {
         this.map_.getViewport().style.cursor = this.mapDefaultCursorStyle_;
     }
 
-    this.featureSelected_ = function(feature, featureCollection) {
-    	if(goog.array.indexOf(this.getMap().getLayers().getArray(), this.manipulationLayer_) == -1)
-    		this.getMap().addLayer(this.manipulationLayer_);
-        
-        this.manipulationLayer_.displaySelectBoxForFeature(feature);
-        
-        this.draggingFeature_ = feature;
+    this.featureSelected_ = function(feature) {
+    	if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_)) {
+        	this.getMap().addLayer(this.manipulationLayer_);
+        }
 
         // Adding handlers layer if not added
         if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_.handlersLayer)) {
         	this.map_.addLayer(this.manipulationLayer_.handlersLayer);
         }
-        this.manipulationLayer_.displayScaleHandlersForFeature(feature);
 
+        if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
+        	this.manipulationLayer_.displaySelectBoxForFeature(feature);
+        	this.manipulationLayer_.displayScaleHandlersForFeature(feature);
+        }
+        
+        this.draggingFeature_ = feature;
+        
         //this.dispatchFeatureEvent(ol.ModifyEventType.MOVESTART, featureCollection);
     }
 
-    this.featureUnSelected_ = function(feature, featureCollection) {
+    this.featureUnSelected_ = function(feature) {
     	this.manipulationLayer_.removeSelectBoxForFeature(feature);
     }
 
