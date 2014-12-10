@@ -51,15 +51,15 @@
                         ready(function(){
                             // The Controller Code
                             var mapWidget = registry.byId("mapWidgetId"),
-                                    mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
-                                    undoButton = registry.byId("mapUndoButtonId"),
-                                    redoButton = registry.byId("mapRedoButtonId"),
-                                    deleteButton = registry.byId("mapDeleteButtonId"),
-                                    drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
-                                    drawArrowButton = registry.byId("mapArrowDrawButtonId"),
-                                    //drawLineArrowButton = registry.byId("mapLineArrowDrawButtonId"),
-                                    exportToPngButton = registry.byId("exportToPngButtonId"),
-                                    exportToJpgButton = registry.byId("exportToJpgButtonId");
+                                mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
+                                undoButton = registry.byId("mapUndoButtonId"),
+                                redoButton = registry.byId("mapRedoButtonId"),
+                                deleteButton = registry.byId("mapDeleteButtonId"),
+                                drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
+                                drawArrowButton = registry.byId("mapArrowDrawButtonId"),
+                                //drawLineArrowButton = registry.byId("mapLineArrowDrawButtonId"),
+                                exportToPngButton = registry.byId("exportToPngButtonId"),
+                                exportToJpgButton = registry.byId("exportToJpgButtonId");
 
                             layerStore = new Observable(new LayerFeatureStore());
                             mapWidget.processLayerStore(layerStore);

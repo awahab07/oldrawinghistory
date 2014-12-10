@@ -269,7 +269,7 @@ ol.interaction.Manipulate = function(opt_options) {
                 	this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
                 }
                 
-                this.dragFromPx_ = mapBrowserEvent.pixel;
+                //this.dragFromPx_ = mapBrowserEvent.pixel;
                 this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
             }
 
@@ -455,7 +455,7 @@ ol.interaction.Manipulate = function(opt_options) {
 	};
 
 	/**
-     * Makes the mouse cursor to "move" style
+     * Makes the mouse cursor to "given" style
      */
     this.changeCursorTo_ = function(cursorStyle) {
         if(goog.isNull(this.mapDefaultCursorStyle_))
@@ -483,7 +483,8 @@ ol.interaction.Manipulate = function(opt_options) {
 
         if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
         	this.manipulationLayer_.displaySelectBoxForFeature(feature);
-        	this.manipulationLayer_.displayScaleHandlersForFeature(feature);
+        	this.manipulationLayer_.displayResizeHandlersForFeature(feature);
+        	this.manipulationLayer_.displayRotateHandleForFeature(feature);
         }
         
         this.draggingFeature_ = feature;

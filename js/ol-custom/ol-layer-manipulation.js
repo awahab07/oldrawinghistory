@@ -16,7 +16,8 @@ goog.require('ol.Collection');
 
 ol.ManipulationFeatureType = {
 	RESIZEBOX: "ResizeBox",
-	RESIZEHANDLE: "ResizeHandle"
+	RESIZEHANDLE: "ResizeHandle",
+    ROTATEHANDLE: "RotateHandle"
 }
 
 ol.layer.Manipulation = function(opt_options) {
@@ -25,9 +26,23 @@ ol.layer.Manipulation = function(opt_options) {
 
 	goog.base(this);
 
-	this.scaleRectangleSize_ = opt_options.scaleRectangleSize || 5,
-	this.handlesStyle_ = opt_options.scaleRectangleStyle || new ol.style.Style({
-		fill: new ol.style.Fill({color: '#FFF'}),
+    this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 5;
+    this.rotateHandleStyle_ = opt_options.rotateHandleStyle || new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: this.rotateHandleSize_,
+            fill: new ol.style.Fill({
+                color: '#00ffff'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#000',
+                width: 2
+            })
+        })
+    });
+
+	this.resizeHandleSize_ = opt_options.scaleRectangleSize || 5;
+    this.handlesStyle_ = opt_options.resizeHandleStyle || new ol.style.Style({
+		fill: new ol.style.Fill({color: '#fff'}),
 		stroke: new ol.style.Stroke({
 		  color: '#000',
 		  width: 0.5
@@ -54,16 +69,40 @@ ol.layer.Manipulation = function(opt_options) {
 	
 	this.handlersLayer.isHandlersLayer = true; // Indicator that this layer is used to display manipulation handlers
 
-  	this.createScaleRectangleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
+    this.createRotateHandleForFeature_ = function(feature, cursorImageUrl) {
+        goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
+        var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates(),
+            rotateHandleCoordinate = selectBoxCoordinates[3];
+            rotatePoint = new ol.geom.Point([[rotateHandleCoordinate]], ol.geom.GeometryLayout.XY),
+            rotateHandleFeature = new ol.Feature({geometry: rotatePoint});
+        
+        rotateHandleFeature.setStyle(this.rotateHandleStyle_);
+
+        rotateHandleFeature.isHandleFeature = true;  // Indication that feature is a manipulation handle
+        rotateHandleFeature.handleType = ol.ManipulationFeatureType.ROTATEHANDLE;
+        rotateHandleFeature.cursorStyle = 'url("'+cursorImageUrl+'") 12 12, auto';
+        
+        rotateHandleFeature.manipulatingFeature_ = manipulatingFeature;
+        rotateHandleFeature.manipulatingFeatureOriginalGeometry_ = manipulatingFeature.getGeometry().clone();
+      
+        return rotateHandleFeature;
+    }
+
+    this.displayRotateHandleForFeature = function(feature) {
+        var rotateHandle = this.createRotateHandleForFeature_(feature, "demo/widget/images/rotate.png");
+        this.handlersLayer.getSource().addFeature(rotateHandle);
+    }
+
+    this.createScaleRectangleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
 		var scaleRectangeCoordinates = [[
-			[ coordinate[0] - this.scaleRectangleSize_, coordinate[1] - this.scaleRectangleSize_ ],
-			[ coordinate[0] - this.scaleRectangleSize_, coordinate[1] + this.scaleRectangleSize_ ],
-			[ coordinate[0] + this.scaleRectangleSize_, coordinate[1] + this.scaleRectangleSize_ ],
-			[ coordinate[0] + this.scaleRectangleSize_, coordinate[1] - this.scaleRectangleSize_ ]
+			[ coordinate[0] - this.resizeHandleSize_, coordinate[1] - this.resizeHandleSize_ ],
+			[ coordinate[0] - this.resizeHandleSize_, coordinate[1] + this.resizeHandleSize_ ],
+			[ coordinate[0] + this.resizeHandleSize_, coordinate[1] + this.resizeHandleSize_ ],
+			[ coordinate[0] + this.resizeHandleSize_, coordinate[1] - this.resizeHandleSize_ ]
 		]];
 
-		var scaleRactange = new ol.geom.Polygon(scaleRectangeCoordinates, ol.geom.GeometryLayout.XY),
-			scaleRactangeFeature = new ol.Feature({geometry: scaleRactange});
+		var scaleRactangle = new ol.geom.Polygon(scaleRectangeCoordinates, ol.geom.GeometryLayout.XY),
+			scaleRactangeFeature = new ol.Feature({geometry: scaleRactangle});
 		
 		scaleRactangeFeature.setStyle(this.handlesStyle_);
 
@@ -77,12 +116,12 @@ ol.layer.Manipulation = function(opt_options) {
 		scaleRactangeFeature.signYChange_ = signYChange;
 		scaleRactangeFeature.referenceExtentCoordinate_ = referenceExtentCoordinate;
 		scaleRactangeFeature.manipulatingFeature_ = manipulatingFeature;
+        scaleRactangeFeature.manipulatingFeatureOriginalGeometry_ = manipulatingFeature.getGeometry().clone();
       
     	return scaleRactangeFeature;
   	}
 
-
-    this.displayScaleHandlersForFeature = function(feature) {
+    this.displayResizeHandlersForFeature = function(feature) {
 		goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
 		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
 
@@ -96,52 +135,55 @@ ol.layer.Manipulation = function(opt_options) {
 			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, 1),
 
 			this.createScaleRectangleForFeature_(feature, 
-				[ selectBoxCoordinates[0][2][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][2][1] ],
+				[ selectBoxCoordinates[0][5][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][5][1] ],
 				false, true, "ns-resize", [0, 1], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][2], true, true, "nesw-resize", [0, 1], -1, 1),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, 1),
 
 			this.createScaleRectangleForFeature_(feature, 
-				[ selectBoxCoordinates[0][2][0], selectBoxCoordinates[0][2][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
+				[ selectBoxCoordinates[0][5][0], selectBoxCoordinates[0][5][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
 				true, false, "ew-resize", [0, 1], -1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][3], true, true, "nwse-resize", [0, 3], -1, -1),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, -1),
 
 			this.createScaleRectangleForFeature_(feature, 
-				[ selectBoxCoordinates[0][3][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][3][1] ],
+				[ selectBoxCoordinates[0][6][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][6][1] ],
 				false, true, "ns-resize", [0, 3], 1, -1)
 		];
 		
 		this.handlersLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
     }
 
+    this.scaleHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
+        var shapeFeature = handleFeature.manipulatingFeature_,
+            shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
+            shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
+            shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
+            dragXDistance = handleFeature.signXChange_ * (toPx[0] - fromPx[0]),
+            dragYDistance = handleFeature.signYChange_ * (toPx[1] - fromPx[1]),
+            scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
+            scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
+            positionReferenceCoordinate = [ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
+            updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
+            displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
+            displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
+
+        var scaledShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
+            return [coordinate[0] * scaleX + displacementX, coordinate[1] * scaleY + displacementY];
+        });
+
+        // Scaling shape feature
+        shapeFeature.getGeometry().setCoordinates(scaledShapeCoordinates);
+    }
+
     this.handleDragged = function(map, handleFeature, fromPx, toPx) {
     	if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
-    		var shapeFeature = handleFeature.manipulatingFeature_,
-    			shapeFeatureExtent = shapeFeature.getGeometry().getExtent(),
-    			shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
-    			shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
-    			dragXDistance = handleFeature.signXChange_ * (toPx[0] - fromPx[0]),
-    			dragYDistance = handleFeature.signYChange_ * (toPx[1] - fromPx[1]),
-    			scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
-    			scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
-    			positionReferenceCoordinate = [ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
-    			updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
-    			displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
-    			displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
-console.log("scaleX", scaleX, "scaleY", scaleY, "pos", positionReferenceCoordinate, "upd", updatedPositionReferenceCoordinate, "disX", displacementX, "disY", displacementY);
-    		var scaledShapeCoordinates = shapeFeature.getGeometry().getCoordinates().map(function(coordinate) {
-    			return [coordinate[0] * scaleX + displacementX, coordinate[1] * scaleY + displacementY];
-    		});
-
-    		// Scaling shape feature
-    		shapeFeature.getGeometry().setCoordinates(scaledShapeCoordinates);
-
-    		// Translating shape feature to Reference Position
-    		// var updatedSahpeFeatureExtent = shapeFeature.getGeometry().getExtent();
-    		// var updatedPositionReferenceCoordinate = [ updatedSahpeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]], updatedSahpeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]] ];
-    		// this.translateFeature_(map, shapeFeature, updatedPositionReferenceCoordinate, positionReferenceCoordinate);
+    		this.scaleHandleDragged_(map, handleFeature, fromPx, toPx);
     	}
+
+        if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
+            this.rotateHandleDragged_(map, handleFeature, fromPx, toPx);
+        }
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
@@ -185,24 +227,29 @@ console.log("scaleX", scaleX, "scaleY", scaleY, "pos", positionReferenceCoordina
      * @return {ol.Feature}         new feature that represents the bouding rectangle
      */
     this.createSelectBoxFeature_ = function(feature) {
-      var extentCoordinates = feature.getGeometry().getExtent(),
-          selectPolygonCoordinates = [[
+        var extentCoordinates = feature.getGeometry().getExtent(),
+            rotateHandlePointX = extentCoordinates[0] + (extentCoordinates[2] - extentCoordinates[0]) / 2,
+        selectPolygonCoordinates = [[
             [ extentCoordinates[0], extentCoordinates[1] ],
             [ extentCoordinates[0], extentCoordinates[3] ],
+            [ rotateHandlePointX, extentCoordinates[3] ], // Rotate Hook
+            [ rotateHandlePointX, extentCoordinates[3] + 30 ], // Rotate Hook Handle
+            [ rotateHandlePointX, extentCoordinates[3] ], // Rotate Hook
             [ extentCoordinates[2], extentCoordinates[3] ],
             [ extentCoordinates[2], extentCoordinates[1] ]
-          ]];
-      var resizePolygon = new ol.geom.Polygon(selectPolygonCoordinates, ol.geom.GeometryLayout.XY),
+        ]];
+        
+        var resizePolygon = new ol.geom.Polygon(selectPolygonCoordinates, ol.geom.GeometryLayout.XY),
           resizeBoxFeature = new ol.Feature({geometry: resizePolygon});
 
-      // Custom identificaiton attributes
-      resizeBoxFeature.manipulationType = ol.ManipulationFeatureType.RESIZEBOX;
-      resizeBoxFeature.manipulationWidth = extentCoordinates[2] - extentCoordinates[0];
-      resizeBoxFeature.manipulationHeight = extentCoordinates[3] - extentCoordinates[1];
-      resizeBoxFeature.manipulatingFeature_ = feature;
-      feature.selectBoxRectangle_ = resizeBoxFeature;
+        // Custom identificaiton attributes
+        resizeBoxFeature.manipulationType = ol.ManipulationFeatureType.RESIZEBOX;
+        resizeBoxFeature.manipulationWidth = extentCoordinates[2] - extentCoordinates[0];
+        resizeBoxFeature.manipulationHeight = extentCoordinates[3] - extentCoordinates[1];
+        resizeBoxFeature.manipulatingFeature_ = feature;
+        feature.selectBoxRectangle_ = resizeBoxFeature;
 
-      return resizeBoxFeature;
+        return resizeBoxFeature;
     }
 
     this.removeSelectBoxForFeature = function(feature) {
