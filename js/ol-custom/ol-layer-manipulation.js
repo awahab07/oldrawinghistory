@@ -54,7 +54,7 @@ ol.layer.Manipulation = function(opt_options) {
 	
 	this.handlersLayer.isHandlersLayer = true; // Indicator that this layer is used to display manipulation handlers
 
-  	this.createScaleRectangleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate) {
+  	this.createScaleRectangleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
 		var scaleRectangeCoordinates = [[
 			[ coordinate[0] - this.scaleRectangleSize_, coordinate[1] - this.scaleRectangleSize_ ],
 			[ coordinate[0] - this.scaleRectangleSize_, coordinate[1] + this.scaleRectangleSize_ ],
@@ -73,6 +73,8 @@ ol.layer.Manipulation = function(opt_options) {
 		
 		scaleRactangeFeature.resizesX_ = resizesX;
 		scaleRactangeFeature.resizesY_ = resizesY;
+		scaleRactangeFeature.signXChange_ = signXChange;
+		scaleRactangeFeature.signYChange_ = signYChange;
 		scaleRactangeFeature.referenceExtentCoordinate_ = referenceExtentCoordinate;
 		scaleRactangeFeature.manipulatingFeature_ = manipulatingFeature;
       
@@ -85,29 +87,29 @@ ol.layer.Manipulation = function(opt_options) {
 		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
 
 		feature.resizeHandleFeatures_ = [
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3]),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, -1),
 
 			this.createScaleRectangleForFeature_(feature, 
 				[ selectBoxCoordinates[0][1][0], selectBoxCoordinates[0][1][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
-				true, false, "ew-resize", [2, 3]),
+				true, false, "ew-resize", [2, 3], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1]),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, 1),
 
 			this.createScaleRectangleForFeature_(feature, 
 				[ selectBoxCoordinates[0][2][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][2][1] ],
-				false, true, "ns-resize", [0, 1]),
+				false, true, "ns-resize", [0, 1], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][2], true, true, "nesw-resize", [0, 1]),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][2], true, true, "nesw-resize", [0, 1], -1, 1),
 
 			this.createScaleRectangleForFeature_(feature, 
 				[ selectBoxCoordinates[0][2][0], selectBoxCoordinates[0][2][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
-				true, false, "ew-resize", [0, 1]),
+				true, false, "ew-resize", [0, 1], -1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][3], true, true, "nwse-resize", [0, 3]),
+			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][3], true, true, "nwse-resize", [0, 3], -1, -1),
 
 			this.createScaleRectangleForFeature_(feature, 
 				[ selectBoxCoordinates[0][3][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][3][1] ],
-				false, true, "ns-resize", [0, 3])
+				false, true, "ns-resize", [0, 3], 1, -1)
 		];
 		
 		this.handlersLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
@@ -119,15 +121,15 @@ ol.layer.Manipulation = function(opt_options) {
     			shapeFeatureExtent = shapeFeature.getGeometry().getExtent(),
     			shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
     			shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
-    			dragXDistance = fromPx[0] - toPx[0],
-    			dragYDistance = fromPx[1] - toPx[1],
-    			scaleX = handleFeature.resizesX_ ? (1 + dragXDistance / shapeFeatureWidth) : 1,
-    			scaleY = handleFeature.resizesY_ ? (1 + dragYDistance / shapeFeatureHeight): 1,
-    			positionReferenceCoordinate = [ shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]], shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]] ],
-    			updatedPositionReferenceCoordinate = [positionReferenceCoordinate[0] * scaleX, positionReferenceCoordinate[1] * scaleY],
+    			dragXDistance = handleFeature.signXChange_ * (toPx[0] - fromPx[0]),
+    			dragYDistance = handleFeature.signYChange_ * (toPx[1] - fromPx[1]),
+    			scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
+    			scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
+    			positionReferenceCoordinate = [ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
+    			updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
     			displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
     			displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
-
+console.log("scaleX", scaleX, "scaleY", scaleY, "pos", positionReferenceCoordinate, "upd", updatedPositionReferenceCoordinate, "disX", displacementX, "disY", displacementY);
     		var scaledShapeCoordinates = shapeFeature.getGeometry().getCoordinates().map(function(coordinate) {
     			return [coordinate[0] * scaleX + displacementX, coordinate[1] * scaleY + displacementY];
     		});
