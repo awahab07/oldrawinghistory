@@ -108,9 +108,12 @@ ol.layer.Manipulation = function(opt_options) {
             shapeFeature = handleFeature.manipulatingFeature_,
             shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
             shapeFeatureCenter = ol.extent.getCenter(shapeFeatureExtent),
-            mathFromPoint = this.olCoordToMathCoord_(fromPx),
-            mathToPoint = this.olCoordToMathCoord_(toPx),
-            mathCenter = this.olCoordToMathCoord_(shapeFeatureCenter),
+            centerCoordinate = map.getCoordinateFromPixel(shapeFeatureCenter),
+            fromCoordinate = map.getCoordinateFromPixel(fromPx),
+            toCoordinate = map.getCoordinateFromPixel(toPx),
+            mathFromPoint = this.olCoordToMathCoord_(fromCoordinate),
+            mathToPoint = this.olCoordToMathCoord_(toCoordinate),
+            mathCenter = this.olCoordToMathCoord_(centerCoordinate),
             dragStartAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathFromPoint.x, mathFromPoint.y),
             dragEndAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathToPoint.x, mathToPoint.y),
             angleBetweenPoints = goog.math.angle(mathFromPoint.x, mathFromPoint.y, mathToPoint.x, mathToPoint.y),
@@ -123,10 +126,10 @@ ol.layer.Manipulation = function(opt_options) {
             p23 = goog.math.Coordinate.distance(mathFromPoint, mathToPoint),
             draggedAngle = Math.acos( (p12*p12 + p13*p13 - p23*p23) / (2*p12*p13) ) * 180 /Math.PI;
 
-console.log("fromPx", fromPx, "toPx", toPx, "fromCoord", map.getCoordinateFromPixel(fromPx), "toCoord", map.getCoordinateFromPixel(toPx));
+console.log("dragStartAngleDegrees", dragStartAngleDegrees, "dragEndAngleDegrees", dragEndAngleDegrees, "angleBetweenPoints", angleBetweenPoints, "differenceAngleDegrees", differenceAngleDegrees, "draggedAngle", draggedAngle);
         var rotatedShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
             var mathCoordinate = manipulationLayer.olCoordToMathCoord_(coordinate);
-            mathCoordinate.rotateDegrees(-45, mathCenter);
+            mathCoordinate.rotateDegrees(angleBetweenPoints, mathCenter);
             return manipulationLayer.mathCoordToOLCoord_(mathCoordinate);
         });
 
@@ -160,41 +163,43 @@ console.log("fromPx", fromPx, "toPx", toPx, "fromCoord", map.getCoordinateFromPi
 		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
 
 		feature.resizeHandleFeatures_ = [
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, -1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, 1),
 
 			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][1][0], selectBoxCoordinates[0][1][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
-				true, false, "ew-resize", [2, 3], 1, 1),
+				true, false, "ew-resize", [2, 3], 1, -1),
 
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, 1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, -1),
 
 			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][5][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][5][1] ],
-				false, true, "ns-resize", [0, 1], 1, 1),
+				false, true, "ns-resize", [0, 1], 1, -1),
 
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, 1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, -1),
 
 			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][5][0], selectBoxCoordinates[0][5][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
-				true, false, "ew-resize", [0, 1], -1, 1),
+				true, false, "ew-resize", [0, 1], -1, -1),
 
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, -1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, 1),
 
 			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][6][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][6][1] ],
-				false, true, "ns-resize", [0, 3], 1, -1)
+				false, true, "ns-resize", [0, 3], 1, 1)
 		];
 		
 		this.handlesLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
     }
 
-    this.scaleHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
+    this.resizeHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
         var shapeFeature = handleFeature.manipulatingFeature_,
             shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
-            dragXDistance = handleFeature.signXChange_ * (toPx[0] - fromPx[0]),
-            dragYDistance = handleFeature.signYChange_ * (toPx[1] - fromPx[1]),
+            fromCoordinate = map.getCoordinateFromPixel(fromPx),
+            toCoordinate = map.getCoordinateFromPixel(toPx),
+            dragXDistance = handleFeature.signXChange_ * (toCoordinate[0] - fromCoordinate[0]),
+            dragYDistance = handleFeature.signYChange_ * (toCoordinate[1] - fromCoordinate[1]),
             scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
             scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
             positionReferenceCoordinate = [ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
@@ -212,7 +217,7 @@ console.log("fromPx", fromPx, "toPx", toPx, "fromCoord", map.getCoordinateFromPi
 
     this.handleDragged = function(map, handleFeature, fromPx, toPx) {
     	if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
-    		this.scaleHandleDragged_(map, handleFeature, fromPx, toPx);
+    		this.resizeHandleDragged_(map, handleFeature, fromPx, toPx);
     	}
 
         if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
