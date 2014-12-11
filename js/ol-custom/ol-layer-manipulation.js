@@ -11,6 +11,9 @@ goog.provide('ol.ManipulationFeatureType');
 
 goog.require('ol.layer.Vector');
 goog.require('ol.Collection');
+goog.require('ol.extent');
+goog.require('goog.math.Coordinate');
+goog.require('goog.math');
 
 
 
@@ -26,7 +29,9 @@ ol.layer.Manipulation = function(opt_options) {
 
 	goog.base(this);
 
-    this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 5;
+    this.iconsBaseUrl_ = opt_options.iconsBaseUrl || "js/demo/widget/images/";
+
+    this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 4;
     this.rotateHandleStyle_ = opt_options.rotateHandleStyle || new ol.style.Style({
         image: new ol.style.Circle({
             radius: this.rotateHandleSize_,
@@ -40,13 +45,18 @@ ol.layer.Manipulation = function(opt_options) {
         })
     });
 
-	this.resizeHandleSize_ = opt_options.scaleRectangleSize || 5;
+	this.resizeHandleSize_ = opt_options.scaleRectangleSize || 3;
     this.handlesStyle_ = opt_options.resizeHandleStyle || new ol.style.Style({
-		fill: new ol.style.Fill({color: '#fff'}),
-		stroke: new ol.style.Stroke({
-		  color: '#000',
-		  width: 0.5
-		})
+        image: new ol.style.Circle({
+            radius: this.resizeHandleSize_,
+            fill: new ol.style.Fill({
+                color: '#00f'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#fff',
+                width: 1
+            })
+        })
 	});
 
 	this.setStyle(new ol.style.Style({
@@ -62,18 +72,18 @@ ol.layer.Manipulation = function(opt_options) {
 	this.isManipulationLayer = true; // Indicator that this layer is used for manipulation
 
 	// Separate layer for displaying manipulation handles (scale/resize, rotate)
-	this.handlersLayer = new ol.layer.Vector({
+	this.handlesLayer = new ol.layer.Vector({
 		source: new ol.source.Vector(),
 		style: this.handlesStyle_
 	});
 	
-	this.handlersLayer.isHandlersLayer = true; // Indicator that this layer is used to display manipulation handlers
+	this.handlesLayer.isHandlesLayer = true; // Indicator that this layer is used to display manipulation handles
 
     this.createRotateHandleForFeature_ = function(feature, cursorImageUrl) {
         goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
         var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates(),
-            rotateHandleCoordinate = selectBoxCoordinates[3];
-            rotatePoint = new ol.geom.Point([[rotateHandleCoordinate]], ol.geom.GeometryLayout.XY),
+            rotateHandleCoordinate = [ selectBoxCoordinates[0][5][0]+20, selectBoxCoordinates[0][5][1] + (selectBoxCoordinates[0][6][1] - selectBoxCoordinates[0][5][1] )/2 ],
+            rotatePoint = new ol.geom.Point(rotateHandleCoordinate, ol.geom.GeometryLayout.XY),
             rotateHandleFeature = new ol.Feature({geometry: rotatePoint});
         
         rotateHandleFeature.setStyle(this.rotateHandleStyle_);
@@ -82,76 +92,100 @@ ol.layer.Manipulation = function(opt_options) {
         rotateHandleFeature.handleType = ol.ManipulationFeatureType.ROTATEHANDLE;
         rotateHandleFeature.cursorStyle = 'url("'+cursorImageUrl+'") 12 12, auto';
         
-        rotateHandleFeature.manipulatingFeature_ = manipulatingFeature;
-        rotateHandleFeature.manipulatingFeatureOriginalGeometry_ = manipulatingFeature.getGeometry().clone();
+        rotateHandleFeature.manipulatingFeature_ = feature;
+        rotateHandleFeature.manipulatingFeatureOriginalGeometry_ = feature.getGeometry().clone();
       
         return rotateHandleFeature;
     }
 
     this.displayRotateHandleForFeature = function(feature) {
-        var rotateHandle = this.createRotateHandleForFeature_(feature, "demo/widget/images/rotate.png");
-        this.handlersLayer.getSource().addFeature(rotateHandle);
+        var rotateHandle = this.createRotateHandleForFeature_(feature, this.iconsBaseUrl_ + "rotate.png");
+        this.handlesLayer.getSource().addFeature(rotateHandle);
     }
 
-    this.createScaleRectangleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
-		var scaleRectangeCoordinates = [[
-			[ coordinate[0] - this.resizeHandleSize_, coordinate[1] - this.resizeHandleSize_ ],
-			[ coordinate[0] - this.resizeHandleSize_, coordinate[1] + this.resizeHandleSize_ ],
-			[ coordinate[0] + this.resizeHandleSize_, coordinate[1] + this.resizeHandleSize_ ],
-			[ coordinate[0] + this.resizeHandleSize_, coordinate[1] - this.resizeHandleSize_ ]
-		]];
+    this.rotateHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
+        var manipulationLayer = this,
+            shapeFeature = handleFeature.manipulatingFeature_,
+            shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
+            shapeFeatureCenter = ol.extent.getCenter(shapeFeatureExtent),
+            mathFromPoint = this.olCoordToMathCoord_(fromPx),
+            mathToPoint = this.olCoordToMathCoord_(toPx),
+            mathCenter = this.olCoordToMathCoord_(shapeFeatureCenter),
+            dragStartAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathFromPoint.x, mathFromPoint.y),
+            dragEndAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathToPoint.x, mathToPoint.y),
+            angleBetweenPoints = goog.math.angle(mathFromPoint.x, mathFromPoint.y, mathToPoint.x, mathToPoint.y),
+            angleOffset = goog.math.angleDifference(angleBetweenPoints, 0),
+            differenceAngleDegrees = goog.math.angleDifference(dragEndAngleDegrees, dragStartAngleDegrees);
 
-		var scaleRactangle = new ol.geom.Polygon(scaleRectangeCoordinates, ol.geom.GeometryLayout.XY),
-			scaleRactangeFeature = new ol.Feature({geometry: scaleRactangle});
-		
-		scaleRactangeFeature.setStyle(this.handlesStyle_);
+            //arcos((P122 + P132 - P232) / (2 * P12 * P13))
+        var p12 = goog.math.Coordinate.distance(mathCenter, mathFromPoint),
+            p13 = goog.math.Coordinate.distance(mathCenter, mathToPoint),
+            p23 = goog.math.Coordinate.distance(mathFromPoint, mathToPoint),
+            draggedAngle = Math.acos( (p12*p12 + p13*p13 - p23*p23) / (2*p12*p13) ) * 180 /Math.PI;
 
-		scaleRactangeFeature.isHandleFeature = true;  // Indication that feature is a manipulation handle
-		scaleRactangeFeature.handleType = ol.ManipulationFeatureType.RESIZEHANDLE;
-		scaleRactangeFeature.cursorStyle = cursorStyle;
+console.log("fromPx", fromPx, "toPx", toPx, "fromCoord", map.getCoordinateFromPixel(fromPx), "toCoord", map.getCoordinateFromPixel(toPx));
+        var rotatedShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
+            var mathCoordinate = manipulationLayer.olCoordToMathCoord_(coordinate);
+            mathCoordinate.rotateDegrees(-45, mathCenter);
+            return manipulationLayer.mathCoordToOLCoord_(mathCoordinate);
+        });
+
+        // Scaling shape feature
+        shapeFeature.getGeometry().setCoordinates(rotatedShapeCoordinates);
+    }
+
+    this.createResizeHandleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
+		var resizeHandlePoint = new ol.geom.Point(coordinate, ol.geom.GeometryLayout.XY),
+			resizeHandleFeature = new ol.Feature({geometry: resizeHandlePoint});
 		
-		scaleRactangeFeature.resizesX_ = resizesX;
-		scaleRactangeFeature.resizesY_ = resizesY;
-		scaleRactangeFeature.signXChange_ = signXChange;
-		scaleRactangeFeature.signYChange_ = signYChange;
-		scaleRactangeFeature.referenceExtentCoordinate_ = referenceExtentCoordinate;
-		scaleRactangeFeature.manipulatingFeature_ = manipulatingFeature;
-        scaleRactangeFeature.manipulatingFeatureOriginalGeometry_ = manipulatingFeature.getGeometry().clone();
+		resizeHandleFeature.setStyle(this.handlesStyle_);
+
+		resizeHandleFeature.isHandleFeature = true;  // Indication that feature is a manipulation handle
+		resizeHandleFeature.handleType = ol.ManipulationFeatureType.RESIZEHANDLE;
+		resizeHandleFeature.cursorStyle = cursorStyle;
+		
+		resizeHandleFeature.resizesX_ = resizesX;
+		resizeHandleFeature.resizesY_ = resizesY;
+		resizeHandleFeature.signXChange_ = signXChange;
+		resizeHandleFeature.signYChange_ = signYChange;
+		resizeHandleFeature.referenceExtentCoordinate_ = referenceExtentCoordinate;
+		resizeHandleFeature.manipulatingFeature_ = manipulatingFeature;
+        resizeHandleFeature.manipulatingFeatureOriginalGeometry_ = manipulatingFeature.getGeometry().clone();
       
-    	return scaleRactangeFeature;
+    	return resizeHandleFeature;
   	}
 
-    this.displayResizeHandlersForFeature = function(feature) {
+    this.displayResizeHandlesForFeature = function(feature) {
 		goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
 		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
 
 		feature.resizeHandleFeatures_ = [
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, -1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, -1),
 
-			this.createScaleRectangleForFeature_(feature, 
+			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][1][0], selectBoxCoordinates[0][1][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
 				true, false, "ew-resize", [2, 3], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, 1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, 
+			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][5][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][5][1] ],
 				false, true, "ns-resize", [0, 1], 1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, 1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, 1),
 
-			this.createScaleRectangleForFeature_(feature, 
+			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][5][0], selectBoxCoordinates[0][5][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
 				true, false, "ew-resize", [0, 1], -1, 1),
 
-			this.createScaleRectangleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, -1),
+			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, -1),
 
-			this.createScaleRectangleForFeature_(feature, 
+			this.createResizeHandleForFeature_(feature, 
 				[ selectBoxCoordinates[0][6][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][6][1] ],
 				false, true, "ns-resize", [0, 3], 1, -1)
 		];
 		
-		this.handlersLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
+		this.handlesLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
     }
 
     this.scaleHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
@@ -189,6 +223,10 @@ ol.layer.Manipulation = function(opt_options) {
     this.olCoordToMathCoord_ = function(olCoordinate) {
         return new goog.math.Coordinate(olCoordinate[0], olCoordinate[1]);
     }
+
+    this.mathCoordToOLCoord_ = function(mathCoordinate) {
+        return [mathCoordinate.x, mathCoordinate.y];
+    }    
 
     this.translateFeature_ = function(map, feature, fromPx, toPx) {
         var interaction = this,

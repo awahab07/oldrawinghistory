@@ -300,7 +300,7 @@ ol.interaction.Manipulate = function(opt_options) {
 			    }, 
 			    undefined, 
 			    function(layer) {
-			    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlersLayer);
+			    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlerLayer);
 			    });
 
 			if(goog.isDef(shapeOrHandleFeature)) {
@@ -476,14 +476,14 @@ ol.interaction.Manipulate = function(opt_options) {
         	this.getMap().addLayer(this.manipulationLayer_);
         }
 
-        // Adding handlers layer if not added
-        if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_.handlersLayer)) {
-        	this.map_.addLayer(this.manipulationLayer_.handlersLayer);
+        // Adding handles layer if not added
+        if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_.handlesLayer)) {
+        	this.map_.addLayer(this.manipulationLayer_.handlesLayer);
         }
 
         if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
         	this.manipulationLayer_.displaySelectBoxForFeature(feature);
-        	this.manipulationLayer_.displayResizeHandlersForFeature(feature);
+        	this.manipulationLayer_.displayResizeHandlesForFeature(feature);
         	this.manipulationLayer_.displayRotateHandleForFeature(feature);
         }
         
