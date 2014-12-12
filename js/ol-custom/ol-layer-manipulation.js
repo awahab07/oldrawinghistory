@@ -82,7 +82,8 @@ ol.layer.Manipulation = function(opt_options) {
     this.createRotateHandleForFeature_ = function(feature, cursorImageUrl) {
         goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
         var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates(),
-            rotateHandleCoordinate = [ selectBoxCoordinates[0][5][0]+20, selectBoxCoordinates[0][5][1] + (selectBoxCoordinates[0][6][1] - selectBoxCoordinates[0][5][1] )/2 ],
+            //rotateHandleCoordinate = [ selectBoxCoordinates[0][5][0]+20, selectBoxCoordinates[0][5][1] + (selectBoxCoordinates[0][6][1] - selectBoxCoordinates[0][5][1] )/2 ],
+            rotateHandleCoordinate = selectBoxCoordinates[0][3],
             rotatePoint = new ol.geom.Point(rotateHandleCoordinate, ol.geom.GeometryLayout.XY),
             rotateHandleFeature = new ol.Feature({geometry: rotatePoint});
         
@@ -113,28 +114,22 @@ ol.layer.Manipulation = function(opt_options) {
             toCoordinate = map.getCoordinateFromPixel(toPx),
             mathFromPoint = this.olCoordToMathCoord_(fromCoordinate),
             mathToPoint = this.olCoordToMathCoord_(toCoordinate),
-            mathCenter = this.olCoordToMathCoord_(centerCoordinate),
+            mathCenter = this.olCoordToMathCoord_(shapeFeatureCenter), // Pixel center should not be converted to map coordinate
             dragStartAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathFromPoint.x, mathFromPoint.y),
             dragEndAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathToPoint.x, mathToPoint.y),
-            angleBetweenPoints = goog.math.angle(mathFromPoint.x, mathFromPoint.y, mathToPoint.x, mathToPoint.y),
-            angleOffset = goog.math.angleDifference(angleBetweenPoints, 0),
-            differenceAngleDegrees = goog.math.angleDifference(dragEndAngleDegrees, dragStartAngleDegrees);
+            differenceAngleDegrees = goog.math.angleDifference(dragStartAngleDegrees, dragEndAngleDegrees);
 
-            //arcos((P122 + P132 - P232) / (2 * P12 * P13))
-        var p12 = goog.math.Coordinate.distance(mathCenter, mathFromPoint),
-            p13 = goog.math.Coordinate.distance(mathCenter, mathToPoint),
-            p23 = goog.math.Coordinate.distance(mathFromPoint, mathToPoint),
-            draggedAngle = Math.acos( (p12*p12 + p13*p13 - p23*p23) / (2*p12*p13) ) * 180 /Math.PI;
-
-console.log("dragStartAngleDegrees", dragStartAngleDegrees, "dragEndAngleDegrees", dragEndAngleDegrees, "angleBetweenPoints", angleBetweenPoints, "differenceAngleDegrees", differenceAngleDegrees, "draggedAngle", draggedAngle);
         var rotatedShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
             var mathCoordinate = manipulationLayer.olCoordToMathCoord_(coordinate);
-            mathCoordinate.rotateDegrees(angleBetweenPoints, mathCenter);
+            mathCoordinate.rotateDegrees(differenceAngleDegrees, mathCenter);
             return manipulationLayer.mathCoordToOLCoord_(mathCoordinate);
         });
 
-        // Scaling shape feature
+        // Rotating shape feature
         shapeFeature.getGeometry().setCoordinates(rotatedShapeCoordinates);
+
+        // Updating attribute to preserve rotation
+        shapeFeature.set('rotation', differenceAngleDegrees);
     }
 
     this.createResizeHandleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {

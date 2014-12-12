@@ -89,7 +89,8 @@ function(declare, JsonRest, Memory){
                                 color: "rgba(180, 50, 40)",
                                 width: 2
                             }
-                        }
+                        },
+                        rotation: 45
                     }
                 ]
             }
@@ -117,6 +118,10 @@ function(declare, JsonRest, Memory){
             layer.features.forEach(function(rawFeature) {
                 var feature = reader.readFeature({type: rawFeature.type, geometry: rawFeature.geometry});
                 //@ TODO account for custom styles
+                
+                // Application specific properties
+                feature.set('rotation', rawFeature.rotation || 0);
+
                 source.addFeature(feature);
             });
             return source;
