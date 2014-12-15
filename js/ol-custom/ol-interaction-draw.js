@@ -19,15 +19,15 @@ ol.interaction.ShapeType = {
     LINEARROW: 'LineArrow'
 };
 
-ol.interaction.ShapeManager = function(shape) {
+ol.interaction.ShapeManager = function(drawInteraction) {
 
     /**
      * Calculates the sketch of custom shape and returns coordinates of desired shape based on start and end drawing coordinates
      * @param  {Arry of ol.Coordinate} coordinates
      * @return {Array of Array of ol.Coordinate} the calculated coordinates of custom shape based on drawig pointer position
      */
-    this.getSketchFeature = function(coordinates) {
-        switch(shape) {
+    this.getSketchFeatureCoordinates = function(coordinates) {
+        switch(drawInteraction.shapeType_) {
             case ol.interaction.ShapeType.ARROW:
                 goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
                 var startX = coordinates[0][0][0],
@@ -87,7 +87,7 @@ ol.interaction.ShapeManager = function(shape) {
      * @private
      */
     this.getSketchPoint = function(coordinates) {
-        switch(shape) {
+        switch(drawInteraction.shapeType_) {
             case ol.interaction.ShapeType.ARROW:
                 return new ol.Feature(new ol.geom.Point(coordinates));
             break;
@@ -95,6 +95,9 @@ ol.interaction.ShapeManager = function(shape) {
             case ol.interaction.ShapeType.LINEARROW:
                 return new ol.Feature(new ol.geom.Point(coordinates));
             break;
+
+            default:
+                return null;
         }
     }
 }
@@ -110,8 +113,12 @@ ol.interaction.ShapeManager = function(shape) {
  * @api stable
  */
 ol.interaction.DrawWithShapes = function(options) {
+    options.type = options.type || "Polygon";
+
     goog.base(this, options);
     
+    this.downCoordinate_ = null;
+
 	/**
 	 * Custom Shape type.
 	 * @type {ol.geom.GeometryType}
@@ -122,31 +129,83 @@ ol.interaction.DrawWithShapes = function(options) {
     /**
      * Custom Shape Manager, to return definitions of drawings
      */
-    this.shapeManager_ = new ol.interaction.ShapeManager(this.shapeType_);
+    this.shapeManager_ = new ol.interaction.ShapeManager(this);
+
+    this.activateShapeDrawingOnLayer = function(shapeType, drawingLayer) {
+        if(goog.isDef(ol.interaction.ShapeType[shapeType.toUpperCase()])) {
+            this.shapeType_ = shapeType;
+            this.type_ = "Polygon";
+        } else {
+            this.shapeType_ = null;
+            this.type_ = shapeType;
+        }
+
+        this.features_ = null;
+        this.source_ = drawingLayer.getSource();
+
+        this.setActive(true);
+    }
+
+    this.isDrawing_ = function() {
+        return !goog.isNull(this.finishCoordinate_);
+    }
+
+    this.isWithinClickTolerance_ = function(currentEventPixel) {
+        var downPx = this.downPx_,
+            dx = downPx[0] - currentEventPixel[0],
+            dy = downPx[1] - currentEventPixel[1],
+            squaredDistance = dx * dx + dy * dy;
+        
+        return squaredDistance <= this.squaredClickTolerance_;
+    }
+
+    this.isPressDragReleaseDrawing_ = function() {
+        return goog.isDefAndNotNull(this.shapeType_)
+    }
+
+    this.createNewSketchFeature_ = function() {
+        return new ol.Feature();
+    }
 
     /**
      * @inheritDoc
      */
     this.handleMapBrowserEvent = function(event) {
+      if(!goog.isDefAndNotNull(this.shapeType_)) {
+        return true;
+      }
+      
       var map = event.map;
       if (!map.isDef()) {
         return true;
       }
+      
       var pass = true;
-      if (goog.isDef(this.shapeType_) && !goog.isNull(this.shapeType_)) {
+      if (this.isPressDragReleaseDrawing_()) {
         
         if(event.type === ol.MapBrowserEvent.EventType.POINTERDOWN) {
             pass = this.handlePointerDown(event);
         }
         
         if(event.type === ol.MapBrowserEvent.EventType.POINTERDRAG) {
-            if (!goog.isNull(this.finishCoordinate_)) {
-                this.modifyDrawing_(event);
-            } else {
-                this.startDrawing_(event);
-                //this.createOrUpdateSketchPoint_(event);
+            if(goog.isNull(this.sketchFeature_) && !this.isWithinClickTolerance_(event.pixel)) {
+                // Start Drawing
+                this.sketchFeature_ = this.createNewSketchFeature_();
+                this.finishCoordinate_ = event.coordinate;
+                var sketchFeatureGeometry = new ol.geom.Polygon(this.shapeManager_.getSketchFeatureCoordinates([this.downCoordinate_, this.finishCoordinate_]));
+console.log(sketchFeatureGeometry.getCoordinates());
+                this.sketchFeature_.setGeometry(sketchFeatureGeometry);
             }
-            pass = false;
+
+            if(!goog.isNull(this.sketchFeature_)) {
+                this.finishCoordinate_ = event.coordinate;
+                var sketchFeatureCoordinates = this.shapeManager_.getSketchFeatureCoordinates([this.downCoordinate_, this.finishCoordinate_]);
+                this.sketchFeature_.getGeometry().setCoordinates(sketchFeatureCoordinates);
+                
+                this.createOrUpdateSketchPoint_(event);
+                this.updateSketchFeatures_();
+                pass = false;
+            }
         }
         
         if(event.type === ol.MapBrowserEvent.EventType.POINTERUP) {
@@ -154,17 +213,21 @@ ol.interaction.DrawWithShapes = function(options) {
             else if (this.shapeType_ != undefined && this.sketchPolygonCoords_[0].length > 2) {
                 this.finishDrawing_(event);
             }*/
-            this.atFinish_(event);
-            this.finishDrawing_(event);
-            pass = false;
+            /*if(this.isDrawing_()) {
+                this.atFinish_(event);
+                this.finishDrawing_(event);
+                pass = false;
+            }*/
+            pass = this.handlePointerUp(event);
         }
-        pass = false;
-      } else if (event.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
+        
+      } /*else if (event.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
         pass = this.handlePointerMove_(event);
       } else if (event.type === ol.MapBrowserEvent.EventType.DBLCLICK) {
         pass = false;
       }
-      return (goog.base(this, 'handleMapBrowserEvent', event) && pass);
+      return (goog.base(this, 'handleMapBrowserEvent', event) && pass);*/
+      return pass;
     };
 
     /**
@@ -175,6 +238,7 @@ ol.interaction.DrawWithShapes = function(options) {
     this.handlePointerDown = function(event) {
       if (this.condition_(event)) {
         this.downPx_ = event.pixel;
+        this.downCoordinate_ = event.coordinate;
         return true;
       } else {
         return false;
@@ -205,13 +269,17 @@ ol.interaction.DrawWithShapes = function(options) {
      * @inheritDoc
      */
     this.handlePointerUp = function(event) {
-        var downPx = this.downPx_;
-        var clickPx = event.pixel;
-        var dx = downPx[0] - clickPx[0];
-        var dy = downPx[1] - clickPx[1];
-        var squaredDistance = dx * dx + dy * dy;
-        var pass = true;
-        if (squaredDistance <= this.squaredClickTolerance_) {
+        var pass = true,
+            isWithinClickTolerance = this.isWithinClickTolerance_(event.pixel),
+            isPressDragReleaseDrawing = this.isPressDragReleaseDrawing_();
+
+        // If there is significant drag (as determined by squaredClickTolerance), process for press-drag-release
+        if(!isWithinClickTolerance && isPressDragReleaseDrawing) {
+            if(!goog.isNull(this.finishCoordinate_)) {
+                this.finishDrawing_(event);
+                pass = false;
+            }
+        } else if(isWithinClickTolerance && !isPressDragReleaseDrawing) {
             this.handlePointerMove_(event);
             if (goog.isNull(this.finishCoordinate_)) {
                 this.startDrawing_(event);
@@ -235,6 +303,10 @@ ol.interaction.DrawWithShapes = function(options) {
       var coordinates = event.coordinate.slice();
       if (goog.isNull(this.sketchPoint_)) {
         this.sketchPoint_ = this.shapeType_ && this.shapeManager_.getSketchPoint(coordinates) || new ol.Feature(new ol.geom.Point(coordinates));
+
+        // Taggign Sketch Point Feature for Manipulate Interaction
+        this.sketchPoint_.isDrawingFeature = true; 
+
         this.updateSketchFeatures_();
       } else {
         var sketchPointGeom = this.sketchPoint_.getGeometry();
@@ -275,7 +347,7 @@ ol.interaction.DrawWithShapes = function(options) {
             if (goog.isDef(this.shapeType_) && !goog.isNull(this.shapeType_)) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
                 potentiallyDone = true;
-                potentiallyFinishCoordinates = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
+                potentiallyFinishCoordinates = this.shapeManager_.getSketchFeatureCoordinates(this.sketchPolygonCoords_);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
                 potentiallyDone = geometry.getCoordinates().length > 2;
@@ -319,7 +391,7 @@ ol.interaction.DrawWithShapes = function(options) {
                 this.sketchLine_ = new ol.Feature(new ol.geom.LineString([start.slice(),
                     start.slice()]));
                 this.sketchPolygonCoords_ = [[start.slice(), start.slice()]];
-                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
+                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeatureCoordinates(this.sketchPolygonCoords_);
                 geometry = new ol.geom.Polygon(this.sketchPolygonCoords_);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 geometry = new ol.geom.LineString([start.slice(), start.slice()]);
@@ -359,7 +431,7 @@ ol.interaction.DrawWithShapes = function(options) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #148");
                 coordinates = [this.sketchPolygonCoords_[0][0], coordinate];
                 console.log("modifyDrawing_", coordinates);
-                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature([coordinates]);
+                this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeatureCoordinates([coordinates]);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #149");
                 coordinates = geometry.getCoordinates();
@@ -403,7 +475,7 @@ ol.interaction.DrawWithShapes = function(options) {
             this.sketchPolygonCoords_[0].push(coordinate.slice());
             goog.asserts.assertInstanceof(geometry, ol.geom.Polygon);
             geometry.setCoordinates(this.sketchPolygonCoords_);
-            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
+            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeatureCoordinates(this.sketchPolygonCoords_);
         } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
             this.finishCoordinate_ = coordinate.slice();
             goog.asserts.assertInstanceof(geometry, ol.geom.LineString);
@@ -438,7 +510,7 @@ ol.interaction.DrawWithShapes = function(options) {
             // we force the replacement by the first point
             //this.sketchPolygonCoords_[0].pop();
             //this.sketchPolygonCoords_[0].push(this.sketchPolygonCoords_[0][0]);
-            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeature(this.sketchPolygonCoords_);
+            this.sketchPolygonCoords_ = this.shapeManager_.getSketchFeatureCoordinates(this.sketchPolygonCoords_);
             //geometry.setCoordinates(this.sketchPolygonCoords_);
             coordinates = geometry.getCoordinates();
             sketchFeature.setGeometry(geometry);

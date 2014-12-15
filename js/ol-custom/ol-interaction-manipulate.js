@@ -196,6 +196,14 @@ ol.interaction.Manipulate = function(opt_options) {
             features));
     }
 
+    this.isCandidateFeature_ = function(feature) {
+    	if(goog.isDef(feature) && goog.isDef(feature.isDrawingFeature) && feature.isDrawingFeature) {
+    		return false;
+    	}
+    	
+    	return true;
+    }
+
     /**
      * @inheritDoc
      */
@@ -303,7 +311,7 @@ ol.interaction.Manipulate = function(opt_options) {
 			    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlerLayer);
 			    });
 
-			if(goog.isDef(shapeOrHandleFeature)) {
+			if(goog.isDef(shapeOrHandleFeature) && this.isCandidateFeature_(shapeOrHandleFeature)) {
 				if(goog.isDefAndNotNull(shapeOrHandleFeature.isHandleFeature))
 					this.changeCursorTo_(shapeOrHandleFeature.cursorStyle);
 				else
@@ -328,6 +336,10 @@ ol.interaction.Manipulate = function(opt_options) {
 			      return feature;
 			    }, undefined, this.layerFilter_);
 			
+			if(!this.isCandidateFeature_(feature)) {
+				return true;
+			}
+
 			if (goog.isDef(feature) &&
 			    selectFeatures.getLength() == 1 &&
 			    selectFeatures.item(0) == feature) {

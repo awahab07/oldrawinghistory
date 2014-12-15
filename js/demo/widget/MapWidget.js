@@ -456,7 +456,9 @@ define([
 
             
             this.activateArrowDrawing = function() {
-                var featureOverlay = new ol.FeatureOverlay({
+                this.drawInteraction.activateShapeDrawingOnLayer("Arrow", this.activeLayer);
+
+                /*var featureOverlay = new ol.FeatureOverlay({
                     style: new ol.style.Style({
                         fill: new ol.style.Fill({
                             color: 'rgba(255, 200, 150, 0.2)'
@@ -479,21 +481,22 @@ define([
                 });
                 //featureOverlay.setMap(this.map);
 
-                var draw = new ol.interaction.DrawWithShapes({
-                    features: this.activeLayer.getSource_().getFeatures(),
-                    type: 'Polygon',
-                    shapeType: 'Arrow'
-                });
-                this.map.addInteraction(draw);
-
                 draw.on("drawend",
                     function(evt){
                         this.getSource_().addFeature(evt.feature);
                         //this.map.removeInteraction(draw);
                         //featureOverlay.removeFeature(evt.feature);
                         this.featureCreated(evt.feature);
-                    }, this.activeLayer);
+                    }, this.activeLayer);*/
             }
+
+
+            this.drawInteraction = new ol.interaction.DrawWithShapes({
+                /*features: this.activeLayer.getSource_().getFeatures(),
+                type: 'Polygon',
+                shapeType: 'Arrow'*/
+            });
+
 
             this.exportCanvas = function(encoding) {
                 this.map.once('postcompose', function(event) {
@@ -575,7 +578,7 @@ define([
 
             // Instantiating ol map
             this.map = new ol.Map({
-                interactions: ol.interaction.defaults().extend([this.manipulateInteraction]),
+                interactions: ol.interaction.defaults().extend([this.manipulateInteraction, this.drawInteraction]),
                 layers: [this.baseImageLayer],
                 target: this.mapDiv,
                 view: this.mapView
