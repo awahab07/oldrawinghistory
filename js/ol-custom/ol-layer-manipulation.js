@@ -29,6 +29,7 @@ ol.layer.Manipulation = function(opt_options) {
 
 	goog.base(this);
 
+    // @TODO make the url dynamic via proper configuration
     this.iconsBaseUrl_ = opt_options.iconsBaseUrl || "js/demo/widget/images/";
 
     this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 4;
@@ -78,6 +79,28 @@ ol.layer.Manipulation = function(opt_options) {
 	});
 	
 	this.handlesLayer.isHandlesLayer = true; // Indicator that this layer is used to display manipulation handles
+    
+    this.shape_ = null; // Reference to manipulating shape
+    this.shapeOriginalGeometry_ = null; // To keep record of geometry of feature before manipulation
+
+    this.shapeSelectedForManipulation = function(shapeFeature) {
+        this.shapeUnSelected();
+        
+        this.shape_ = shapeFeature;
+        this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
+        
+        this.displaySelectBoxForFeature();
+        this.displayResizeHandlesForFeature();
+        this.displayRotateHandleForFeature();
+    }
+
+    this.shapeUnSelected = function() {
+        this.shape_ = null;
+        this.shapeOriginalGeometry_ = null;
+
+        this.getSource().clear();
+        this.handlesLayer.getSource().clear();
+    }
 
     this.createRotateHandleForFeature_ = function(feature, cursorImageUrl) {
         goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
@@ -99,15 +122,14 @@ ol.layer.Manipulation = function(opt_options) {
         return rotateHandleFeature;
     }
 
-    this.displayRotateHandleForFeature = function(feature) {
-        var rotateHandle = this.createRotateHandleForFeature_(feature, this.iconsBaseUrl_ + "rotate.png");
+    this.displayRotateHandleForFeature = function() {
+        var rotateHandle = this.createRotateHandleForFeature_(this.shape_, this.iconsBaseUrl_ + "rotate.png");
         this.handlesLayer.getSource().addFeature(rotateHandle);
     }
 
     this.rotateHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
         var manipulationLayer = this,
-            shapeFeature = handleFeature.manipulatingFeature_,
-            shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
+            shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(),
             shapeFeatureCenter = ol.extent.getCenter(shapeFeatureExtent),
             centerCoordinate = map.getCoordinateFromPixel(shapeFeatureCenter),
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
@@ -126,10 +148,10 @@ ol.layer.Manipulation = function(opt_options) {
         });
 
         // Rotating shape feature
-        shapeFeature.getGeometry().setCoordinates(rotatedShapeCoordinates);
+        this.shape_.getGeometry().setCoordinates(rotatedShapeCoordinates);
 
         // Updating attribute to preserve rotation
-        shapeFeature.set('rotation', differenceAngleDegrees);
+        this.shape_.set('rotation', differenceAngleDegrees);
     }
 
     this.createResizeHandleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
@@ -153,8 +175,10 @@ ol.layer.Manipulation = function(opt_options) {
     	return resizeHandleFeature;
   	}
 
-    this.displayResizeHandlesForFeature = function(feature) {
-		goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
+    this.displayResizeHandlesForFeature = function() {
+        var feature = this.shape_;
+		
+        goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
 		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
 
 		feature.resizeHandleFeatures_ = [
@@ -187,8 +211,7 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.resizeHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
-        var shapeFeature = handleFeature.manipulatingFeature_,
-            shapeFeatureExtent = handleFeature.manipulatingFeatureOriginalGeometry_.getExtent(),
+        var shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(),
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
@@ -207,7 +230,7 @@ ol.layer.Manipulation = function(opt_options) {
         });
 
         // Scaling shape feature
-        shapeFeature.getGeometry().setCoordinates(scaledShapeCoordinates);
+        this.shape_.getGeometry().setCoordinates(scaledShapeCoordinates);
     }
 
     this.handleDragged = function(map, handleFeature, fromPx, toPx) {
@@ -218,6 +241,10 @@ ol.layer.Manipulation = function(opt_options) {
         if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
             this.rotateHandleDragged_(map, handleFeature, fromPx, toPx);
         }
+    }
+
+    this.shapeDragged = function(map, handleFeature, fromPx, toPx) {
+        this.translateFeature_(map, handleFeature, fromPx, toPx);
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
@@ -311,8 +338,8 @@ ol.layer.Manipulation = function(opt_options) {
     	this.displaySelectBoxForFeature(feature);
     }
 
-    this.displaySelectBoxForFeature = function(feature) {
-    	this.getSource().addFeature(this.createSelectBoxFeature_(feature));
+    this.displaySelectBoxForFeature = function() {
+    	this.getSource().addFeature(this.createSelectBoxFeature_(this.shape_));
     }
 }
 goog.inherits(ol.layer.Manipulation, ol.layer.Vector);

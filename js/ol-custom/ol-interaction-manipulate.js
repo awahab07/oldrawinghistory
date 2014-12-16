@@ -171,14 +171,14 @@ ol.interaction.Manipulate = function(opt_options) {
     	return !(goog.isDef(layer.isManipulationLayer) && layer.isManipulationLayer);
     }
     
-    this.mapDefaultCursorStyle_ = null;
+    this.mapDefaultCursorStyle_ = null; // Needed to preserve original map cursor style
     this.draggingFeature_ = null; // To hold the reference of the feature being dragged
     this.dragFromPx_ = null; // Pixel from which the dragging started
     this.downPx_ = null; // Pixel at which the Pointer had been downed
 
     // Flags that will determine in which mode the Map currently is
-    this.isInGeometryModificationMode_ = false;
-    this.isInSelectMode_ = true;
+    this.isInGeometryModificationMode_ = false; // Free Hand / Vertices modification mode
+    this.isInSelectMode_ = true; // Resize/Rotate/Move
 
     /**
      * dispatchFeatureEvent: dispatching feature modify events while assigning fid
@@ -274,7 +274,7 @@ ol.interaction.Manipulate = function(opt_options) {
                 if(goog.isDef(this.draggingFeature_.isHandleFeature) && this.draggingFeature_.isHandleFeature) {
                 	this.manipulationLayer_.handleDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
                 } else {
-                	this.translateFeature_(this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+                	this.manipulationLayer_.shapeDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
                 }
                 
                 //this.dragFromPx_ = mapBrowserEvent.pixel;
@@ -494,9 +494,7 @@ ol.interaction.Manipulate = function(opt_options) {
         }
 
         if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
-        	this.manipulationLayer_.displaySelectBoxForFeature(feature);
-        	this.manipulationLayer_.displayResizeHandlesForFeature(feature);
-        	this.manipulationLayer_.displayRotateHandleForFeature(feature);
+        	this.manipulationLayer_.shapeSelectedForManipulation(feature);
         }
         
         this.draggingFeature_ = feature;
@@ -505,7 +503,7 @@ ol.interaction.Manipulate = function(opt_options) {
     }
 
     this.featureUnSelected_ = function(feature) {
-    	this.manipulationLayer_.removeSelectBoxForFeature(feature);
+    	this.manipulationLayer_.shapeUnSelected(feature);
     }
 
     // Feature Structured Manipulation Functionality
