@@ -86,6 +86,9 @@ ol.layer.Manipulation = function(opt_options) {
     this.shapeSelectedForManipulation = function(shapeFeature) {
         this.shapeUnSelected();
         
+        if(goog.isNull(shapeFeature))
+            return false;
+
         this.shape_ = shapeFeature;
         this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
         
@@ -94,10 +97,30 @@ ol.layer.Manipulation = function(opt_options) {
         this.displayRotateHandleForFeature();
     }
 
+    this.draggingDone = function(shapeOrHandleFeature) {
+        var shapeFeature = goog.isDef(shapeOrHandleFeature.isHandleFeature) && shapeOrHandleFeature.isHandleFeature ? shapeOrHandleFeature.manipulatingFeature_ : shapeOrHandleFeature;
+        this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
+    }
+
+    this.shapeManipulated = function(shapeFeature) {
+        this.clearManipulationFeatures();
+        this.displayManipulationFeatures();
+    }
+
     this.shapeUnSelected = function() {
         this.shape_ = null;
         this.shapeOriginalGeometry_ = null;
 
+        this.clearManipulationFeatures();
+    }
+
+    this.displayManipulationFeatures = function() {
+        this.displaySelectBoxForFeature();
+        this.displayResizeHandlesForFeature();
+        this.displayRotateHandleForFeature();
+    }
+
+    this.clearManipulationFeatures = function() {
         this.getSource().clear();
         this.handlesLayer.getSource().clear();
     }
@@ -141,17 +164,11 @@ ol.layer.Manipulation = function(opt_options) {
             dragEndAngleDegrees = goog.math.angle(mathCenter.x, mathCenter.y, mathToPoint.x, mathToPoint.y),
             differenceAngleDegrees = goog.math.angleDifference(dragStartAngleDegrees, dragEndAngleDegrees);
 
-        var rotatedShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
-            var mathCoordinate = manipulationLayer.olCoordToMathCoord_(coordinate);
-            mathCoordinate.rotateDegrees(differenceAngleDegrees, mathCenter);
-            return manipulationLayer.mathCoordToOLCoord_(mathCoordinate);
-        });
-
-        // Rotating shape feature
-        this.shape_.getGeometry().setCoordinates(rotatedShapeCoordinates);
+        this.shape_.setGeometry( this.rotateGeometryAroundCoordinate_(this.shapeOriginalGeometry_.clone(), shapeFeatureCenter, differenceAngleDegrees) );
 
         // Updating attribute to preserve rotation
         this.shape_.set('rotation', differenceAngleDegrees);
+        this.shape_.set('rotationCenter', shapeFeatureCenter);
     }
 
     this.createResizeHandleForFeature_ = function(manipulatingFeature, coordinate, resizesX, resizesY, cursorStyle, referenceExtentCoordinate, signXChange, signYChange) {
@@ -185,25 +202,25 @@ ol.layer.Manipulation = function(opt_options) {
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, 1),
 
 			this.createResizeHandleForFeature_(feature, 
-				[ selectBoxCoordinates[0][1][0], selectBoxCoordinates[0][1][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
+				[ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ],
 				true, false, "ew-resize", [2, 3], 1, -1),
 
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, -1),
 
 			this.createResizeHandleForFeature_(feature, 
-				[ selectBoxCoordinates[0][5][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][5][1] ],
+				[ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ],
 				false, true, "ns-resize", [0, 1], 1, -1),
 
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, -1),
 
 			this.createResizeHandleForFeature_(feature, 
-				[ selectBoxCoordinates[0][5][0], selectBoxCoordinates[0][5][1] - feature.selectBoxRectangle_.manipulationHeight/2 ],
+				[ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ],
 				true, false, "ew-resize", [0, 1], -1, -1),
 
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, 1),
 
 			this.createResizeHandleForFeature_(feature, 
-				[ selectBoxCoordinates[0][6][0] - feature.selectBoxRectangle_.manipulationWidth/2, selectBoxCoordinates[0][6][1] ],
+				[ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ],
 				false, true, "ns-resize", [0, 3], 1, 1)
 		];
 		
@@ -225,12 +242,28 @@ ol.layer.Manipulation = function(opt_options) {
             displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
             displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
 
-        var scaledShapeCoordinates = handleFeature.manipulatingFeatureOriginalGeometry_.getCoordinates().map(function(coordinate) {
+
+        var shapeCoordinates = this.grabCoordinatesArrayFromGeometry_(this.shapeOriginalGeometry_.clone());
+        
+        // Un Rotating coordinates if shape is rotated
+        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
+            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotation'));
+        }
+        
+        // Scaling/Resizing coordinates
+        shapeCoordinates = shapeCoordinates.map(function(coordinate) {
             return [coordinate[0] * scaleX + displacementX, coordinate[1] * scaleY + displacementY];
         });
 
+        // Re Rotating coordinates if shape is rotated
+        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
+            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), this.shape_.get('rotation'));
+        }
+
+        shapeCoordinates = this.wrapCoordinatesArrayForGeometry_(this.shape_.getGeometry(), shapeCoordinates);
+
         // Scaling shape feature
-        this.shape_.getGeometry().setCoordinates(scaledShapeCoordinates);
+        this.shape_.getGeometry().setCoordinates(shapeCoordinates);
     }
 
     this.handleDragged = function(map, handleFeature, fromPx, toPx) {
@@ -241,10 +274,14 @@ ol.layer.Manipulation = function(opt_options) {
         if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
             this.rotateHandleDragged_(map, handleFeature, fromPx, toPx);
         }
+
+        this.shapeManipulated();
     }
 
     this.shapeDragged = function(map, handleFeature, fromPx, toPx) {
         this.translateFeature_(map, handleFeature, fromPx, toPx);
+
+        this.shapeManipulated();
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
@@ -253,7 +290,35 @@ ol.layer.Manipulation = function(opt_options) {
 
     this.mathCoordToOLCoord_ = function(mathCoordinate) {
         return [mathCoordinate.x, mathCoordinate.y];
-    }    
+    }
+
+    this.rotateCoordinatesArrayAroundCoordinate_ = function(coordinates, centerCoordinate, angleDegreesToRotate) {
+        var manipulationLayer = this,
+            mathCenter = manipulationLayer.olCoordToMathCoord_(centerCoordinate);
+        
+        coordinates = coordinates.map(function(coordinate) {
+            var mathCoordinate = manipulationLayer.olCoordToMathCoord_(coordinate);
+            mathCoordinate.rotateDegrees(angleDegreesToRotate, mathCenter);
+            return manipulationLayer.mathCoordToOLCoord_(mathCoordinate);
+        });
+
+        return coordinates;
+    }
+
+    this.rotateGeometryAroundCoordinate_ = function(geometry, centerCoordinate, angleDegreesToRotate) {
+        var geometryLayout = geometry.getLayout(),
+            rotatedGeometryCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(this.grabCoordinatesArrayFromGeometry_(geometry), centerCoordinate, angleDegreesToRotate);
+
+        rotatedGeometryCoordinates = this.wrapCoordinatesArrayForGeometry_(geometry, rotatedGeometryCoordinates);
+
+        geometry.setCoordinates(rotatedGeometryCoordinates, geometryLayout);
+        return geometry;
+    }
+
+    this.rotateFeature_ = function(feature, centerCoordinate, angleDegreesToRotate) {
+        feature.setGeometry(this.rotateGeometryAroundCoordinate_(feature.getGeometry(), centerCoordinate, angleDegreesToRotate));
+        return feature;
+    }
 
     this.translateFeature_ = function(map, feature, fromPx, toPx) {
         var interaction = this,
@@ -261,28 +326,56 @@ ol.layer.Manipulation = function(opt_options) {
             toCoordinate = map.getCoordinateFromPixel(toPx);
         var differenceMathCoordinate = goog.math.Coordinate.difference(this.olCoordToMathCoord_(toCoordinate), this.olCoordToMathCoord_(fromCoordinate));
 
-        var coordinates = feature.getGeometry().getCoordinates();
+        var coordinates = goog.array.map(this.grabCoordinatesArrayFromGeometry_(feature.getGeometry()), function(olCoordinate) {
+            var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
+            return [translatedMathCoordinate.x, translatedMathCoordinate.y];
+        }, this);
+
+        coordinates = this.wrapCoordinatesArrayForGeometry_(feature.getGeometry(), coordinates);
+        
+        feature.getGeometry().setCoordinates(coordinates);
+    }
+
+    /**
+     * This is needed because Point, LineString and Polygons have different array structure of coordinates
+     * @param  {ol.geom.Geometry} geometry the geometry to grab coordinates from
+     * @return {Array<ol.Coordinate>}          A two dimensional array of coordinates
+     */
+    this.grabCoordinatesArrayFromGeometry_ = function(geometry) {
+        var coordinates = geometry.getCoordinates();
         if(goog.isDef(coordinates[0][0])) {
             if(goog.isDef(coordinates[0][0][0])) {
-                coordinates = [ goog.array.map(coordinates[0], function(olCoordinate) {
-                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-                }, this) ];
+                return coordinates[0];
             } else {
-                coordinates = goog.array.map(coordinates, function(olCoordinate) {
-                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-                }, this);
+                return coordinates;
             }
             
         } else {
-            coordinates = goog.array.map([coordinates], function(olCoordinate) {
-                var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-            }, this)[0];
+            return [ coordinates ];
         }
-        
-        feature.getGeometry().setCoordinates(coordinates);
+        return null;
+    }
+
+    /**
+     * This is needed because Point, LineString and Polygons have different array structure of coordinates
+     * So when assigned manipulated array of coordinates, the must be transformed into proper structure
+     * @param  {ol.geom.Geometry} geometry the geometry to determine the array structure
+     * @param {Array<ol.Coordinate>} coordinates The coordintes to wrap to
+     * @return {Array}          array of ol.Coordinate of appropriate dimensions
+     */
+    this.wrapCoordinatesArrayForGeometry_ = function(geometry, coordinates) {
+        var coordinateStructure = geometry.getCoordinates();
+        if(goog.isDef(coordinateStructure[0][0])) {
+            if(goog.isDef(coordinateStructure[0][0][0])) {
+                return [ coordinates ];
+            } else {
+                return coordinates;
+            }
+            
+        } else {
+            return coordinates[0];
+        }
+        return null;
     }
 
 	/**
@@ -292,16 +385,20 @@ ol.layer.Manipulation = function(opt_options) {
      * @return {ol.Feature}         new feature that represents the bouding rectangle
      */
     this.createSelectBoxFeature_ = function(feature) {
-        var extentCoordinates = feature.getGeometry().getExtent(),
-            rotateHandlePointX = extentCoordinates[0] + (extentCoordinates[2] - extentCoordinates[0]) / 2,
+        var geometry = feature.getGeometry().clone();
+        if(feature.get('rotation') && feature.get('rotationCenter')) {
+            geometry = this.rotateGeometryAroundCoordinate_( geometry, feature.get('rotationCenter'), -1 * feature.get('rotation') );
+        }
+        var unRotatedFeatureExtent = geometry.getExtent(),
+            rotateHandlePointX = unRotatedFeatureExtent[0] + (unRotatedFeatureExtent[2] - unRotatedFeatureExtent[0]) / 2,
         selectPolygonCoordinates = [[
-            [ extentCoordinates[0], extentCoordinates[1] ],
-            [ extentCoordinates[0], extentCoordinates[3] ],
-            [ rotateHandlePointX, extentCoordinates[3] ], // Rotate Hook
-            [ rotateHandlePointX, extentCoordinates[3] + 30 ], // Rotate Hook Handle
-            [ rotateHandlePointX, extentCoordinates[3] ], // Rotate Hook
-            [ extentCoordinates[2], extentCoordinates[3] ],
-            [ extentCoordinates[2], extentCoordinates[1] ]
+            [ unRotatedFeatureExtent[0], unRotatedFeatureExtent[1] ],
+            [ unRotatedFeatureExtent[0], unRotatedFeatureExtent[3] ],
+            [ rotateHandlePointX, unRotatedFeatureExtent[3] ], // Rotate Hook
+            [ rotateHandlePointX, unRotatedFeatureExtent[3] + 30 ], // Rotate Hook Handle
+            [ rotateHandlePointX, unRotatedFeatureExtent[3] ], // Rotate Hook
+            [ unRotatedFeatureExtent[2], unRotatedFeatureExtent[3] ],
+            [ unRotatedFeatureExtent[2], unRotatedFeatureExtent[1] ]
         ]];
         
         var resizePolygon = new ol.geom.Polygon(selectPolygonCoordinates, ol.geom.GeometryLayout.XY),
@@ -309,8 +406,8 @@ ol.layer.Manipulation = function(opt_options) {
 
         // Custom identificaiton attributes
         resizeBoxFeature.manipulationType = ol.ManipulationFeatureType.RESIZEBOX;
-        resizeBoxFeature.manipulationWidth = extentCoordinates[2] - extentCoordinates[0];
-        resizeBoxFeature.manipulationHeight = extentCoordinates[3] - extentCoordinates[1];
+        resizeBoxFeature.manipulationWidth = unRotatedFeatureExtent[2] - unRotatedFeatureExtent[0];
+        resizeBoxFeature.manipulationHeight = unRotatedFeatureExtent[3] - unRotatedFeatureExtent[1];
         resizeBoxFeature.manipulatingFeature_ = feature;
         feature.selectBoxRectangle_ = resizeBoxFeature;
 
@@ -339,7 +436,11 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.displaySelectBoxForFeature = function() {
-    	this.getSource().addFeature(this.createSelectBoxFeature_(this.shape_));
+        var selectBoxFeature = this.createSelectBoxFeature_(this.shape_);
+        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
+            this.rotateFeature_(selectBoxFeature, this.shape_.get('rotationCenter'), this.shape_.get('rotation'));
+        }
+    	this.getSource().addFeature(selectBoxFeature);
     }
 }
 goog.inherits(ol.layer.Manipulation, ol.layer.Vector);

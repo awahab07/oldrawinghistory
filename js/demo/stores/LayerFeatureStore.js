@@ -11,6 +11,9 @@ function(declare, JsonRest, Memory){
                     stroke: {
                         color: 'rgba(250, 100, 60, 1)',
                         width: 3
+                    },
+                    fill: {
+                        color: 'rgba(255, 255, 0, 0.4)'
                     }
                 },
                 features: [
@@ -72,6 +75,9 @@ function(declare, JsonRest, Memory){
                     stroke: {
                         color: 'rgba(80, 200, 20, 1)',
                         width: 6
+                    },
+                    fill: {
+                        color: 'rgba(250, 5, 5, 0.9)'
                     }
                 },
                 features: [
@@ -83,10 +89,10 @@ function(declare, JsonRest, Memory){
                         },
                         style:{
                             fill: {
-                                color: "rgba(100, 150, 30)"
+                                color: "rgba(250, 5, 5, 1)"
                             },
                             stroke: {
-                                color: "rgba(180, 50, 40)",
+                                color: "rgba(180, 50, 40, 08)",
                                 width: 2
                             }
                         },
@@ -143,7 +149,7 @@ function(declare, JsonRest, Memory){
                         width: layer.style && layer.style.stroke && layer.style.stroke.width ||  3
                     }),
                     fill: new ol.style.Fill({
-                        color: 'rgba(0, 0, 255, 0.1)'
+                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(0, 0, 255, 0.1)'
                     })
                 })];
                 styles['MultiLinestring'] = [new ol.style.Style({
@@ -158,7 +164,7 @@ function(declare, JsonRest, Memory){
                         width: 1
                     }),
                     fill: new ol.style.Fill({
-                        color: 'rgba(255, 255, 0, 0.1)'
+                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 255, 0, 0.1)'
                     })
                 })];
                 styles['default'] = [new ol.style.Style({
@@ -167,7 +173,7 @@ function(declare, JsonRest, Memory){
                         width: layer.style && layer.style.stroke && layer.style.stroke.width || 3
                     }),
                     fill: new ol.style.Fill({
-                        color: 'rgba(255, 0, 0, 0.1)'
+                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 0, 0, 0.1)'
                     }),
                     image: image
                 })];

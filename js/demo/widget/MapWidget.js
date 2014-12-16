@@ -81,6 +81,7 @@ define([
 
             this.layerRowClicked = function(rowIndex) {
                 this.activeLayer = this.layerStore.getOLLayerReference(this.layerStore.data[rowIndex]);
+                this.manipulateInteraction.setLayerToManipulateOn(this.activeLayer);
             }
 
             /**
@@ -475,6 +476,7 @@ define([
             }
 
             this.manipulateInteraction = new ol.interaction.Manipulate({
+                layerToManipulateOn: this.activeLayer
                 /*features: this.selectInteraction.getFeatures(),
                 style: this.overlayStyle*/
             });
@@ -550,6 +552,8 @@ define([
                 target: this.mapDiv,
                 view: this.mapView
             });
+
+            this.map.on("manipulatestart", function(evt){console.log("manipulatestart");});
 
             widgetDebug = this; // For dev purposes only
         },

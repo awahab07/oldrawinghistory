@@ -168,11 +168,14 @@ ol.interaction.Manipulate = function(opt_options) {
     // Manipulation variables
     this.manipulationLayer_ = new ol.layer.Manipulation();
     this.layerFilter_ = function(layer) {
-    	return !(goog.isDef(layer.isManipulationLayer) && layer.isManipulationLayer);
+    	var isSelectedLayerOnly = this.layerToManipulateOn_ ? this.layerToManipulateOn_ == layer : true;
+    		isSelectedLayerOnly = isSelectedLayerOnly || (goog.isDef(layer.isHandlesLayer) && layer.isHandlesLayer);
+    	return !(goog.isDef(layer.isManipulationLayer) && layer.isManipulationLayer) && isSelectedLayerOnly;
     }
     
     this.mapDefaultCursorStyle_ = null; // Needed to preserve original map cursor style
     this.draggingFeature_ = null; // To hold the reference of the feature being dragged
+    this.manipulatingFeature_ = null; // For undo redo events
     this.dragFromPx_ = null; // Pixel from which the dragging started
     this.downPx_ = null; // Pixel at which the Pointer had been downed
 
@@ -270,26 +273,23 @@ ol.interaction.Manipulate = function(opt_options) {
 		// Handle PointerDrag and PointerUp Events for Movement if this.draggingFeature_ is not null
 		if(!goog.isNull(this.draggingFeature_) && !goog.isNull(this.dragFromPx_)) {
             if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
+
                 // If dragged feature is a handler feature, delegate to manipulation layer
                 if(goog.isDef(this.draggingFeature_.isHandleFeature) && this.draggingFeature_.isHandleFeature) {
                 	this.manipulationLayer_.handleDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
                 } else {
                 	this.manipulationLayer_.shapeDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+
+                	// resetting dragFromPx_ for incremental translation, as opposed in case of rotation/resize
+                	this.dragFromPx_ = mapBrowserEvent.pixel;
                 }
-                
-                //this.dragFromPx_ = mapBrowserEvent.pixel;
-                this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
+
+                //this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
             }
 
             if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
-                //var featureCollection = new ol.Collection();
-                //featureCollection.push(this.draggingFeature_);
-                //this.dispatchFeatureEvent(ol.ModifyEventType.MOVEEND, featureCollection);
-
-                //this.manipulationLayer_.removeSelectBoxForFeature(this.draggingFeature_);
-
+            	this.manipulationLayer_.draggingDone(this.draggingFeature_);
                 this.dragFromPx_ = null;
-                //this.draggingFeature_ = null;
             }
             
             return false;
@@ -499,59 +499,14 @@ ol.interaction.Manipulate = function(opt_options) {
         
         this.draggingFeature_ = feature;
         
-        //this.dispatchFeatureEvent(ol.ModifyEventType.MOVESTART, featureCollection);
+        var eventFeatureCollection = new ol.Collection();
+        eventFeatureCollection.push(feature);
+        
+        this.manipulatingFeature_ = null; // To be populated when edited
     }
 
     this.featureUnSelected_ = function(feature) {
     	this.manipulationLayer_.shapeUnSelected(feature);
-    }
-
-    // Feature Structured Manipulation Functionality
-    
-    /**
-     * Wrapping the ol.Coordinate to goog.math.Coordinate to allow matrix operations
-     * @param  {ol.Coordinate} olCoordinate The coordinate to wrap into a math coordinate
-     * @return {goog.math.Coordinate} returned new math coordinate
-     */
-    this.olCoordToMathCoord_ = function(olCoordinate) {
-        return new goog.math.Coordinate(olCoordinate[0], olCoordinate[1]);
-    }
-
-    /**
-     * Translate the Feature by applying ol.math.Coordinate.translate on feature coordinates by first converting
-     * them to goog.math.Coordinate
-     * @param  {ol.Feature} feature The feature to translate to
-     * @param  {ol.Pixel} fromPx Pixel from which the translation should start.
-     * @param  {ol.Pixel} toPx Pixel at which the translation should end.
-     */
-    this.translateFeature_ = function(feature, fromPx, toPx) {
-        var interaction = this,
-            fromCoordinate = this.map_.getCoordinateFromPixel(fromPx),
-            toCoordinate = this.map_.getCoordinateFromPixel(toPx);
-        var differenceMathCoordinate = goog.math.Coordinate.difference(interaction.olCoordToMathCoord_(toCoordinate), interaction.olCoordToMathCoord_(fromCoordinate));
-
-        var coordinates = feature.getGeometry().getCoordinates();
-        if(goog.isDef(coordinates[0][0])) {
-            if(goog.isDef(coordinates[0][0][0])) {
-                coordinates = [ goog.array.map(coordinates[0], function(olCoordinate) {
-                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-                }, this) ];
-            } else {
-                coordinates = goog.array.map(coordinates, function(olCoordinate) {
-                    var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                    return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-                }, this);
-            }
-            
-        } else {
-            coordinates = goog.array.map([coordinates], function(olCoordinate) {
-                var translatedMathCoordinate = interaction.olCoordToMathCoord_(olCoordinate).translate(differenceMathCoordinate);
-                return [translatedMathCoordinate.x, translatedMathCoordinate.y];
-            }, this)[0];
-        }
-        
-        feature.getGeometry().setCoordinates(coordinates);
     }
 
 };
