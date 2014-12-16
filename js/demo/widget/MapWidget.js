@@ -457,46 +457,13 @@ define([
             
             this.activateArrowDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Arrow", this.activeLayer);
-
-                /*var featureOverlay = new ol.FeatureOverlay({
-                    style: new ol.style.Style({
-                        fill: new ol.style.Fill({
-                            color: 'rgba(255, 200, 150, 0.2)'
-                        }),
-                        stroke: new ol.style.Stroke({
-                            color: '#eeff33',
-                            width: 1
-                        }),
-                        image: new ol.style.Icon({
-                            src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
-                            width: 18,
-                            height: 18,
-                            opacity: 0.8,
-                            rotation: Math.PI,
-                            xOffset: -3,
-                            yOffset: -2
-                        })
-
-                    })
-                });
-                //featureOverlay.setMap(this.map);
-
-                draw.on("drawend",
-                    function(evt){
-                        this.getSource_().addFeature(evt.feature);
-                        //this.map.removeInteraction(draw);
-                        //featureOverlay.removeFeature(evt.feature);
-                        this.featureCreated(evt.feature);
-                    }, this.activeLayer);*/
             }
 
+            this.activatePolygonDrawing = function() {
+                this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
+            }
 
-            this.drawInteraction = new ol.interaction.DrawWithShapes({
-                /*features: this.activeLayer.getSource_().getFeatures(),
-                type: 'Polygon',
-                shapeType: 'Arrow'*/
-            });
-
+            this.drawInteraction = new ol.interaction.DrawWithShapes({});
 
             this.exportCanvas = function(encoding) {
                 this.map.once('postcompose', function(event) {
@@ -508,8 +475,8 @@ define([
             }
 
             this.manipulateInteraction = new ol.interaction.Manipulate({
-                features: this.selectInteraction.getFeatures(),
-                style: this.overlayStyle
+                /*features: this.selectInteraction.getFeatures(),
+                style: this.overlayStyle*/
             });
 
 

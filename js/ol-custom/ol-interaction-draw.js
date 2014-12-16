@@ -117,7 +117,12 @@ ol.interaction.DrawWithShapes = function(options) {
 
     goog.base(this, options);
     
+    // Initially Deactivate
+    this.setActive(false);
+
     this.downCoordinate_ = null;
+
+    this.layerToDrawOn_ = null;
 
 	/**
 	 * Custom Shape type.
@@ -142,6 +147,7 @@ ol.interaction.DrawWithShapes = function(options) {
 
         this.features_ = null;
         this.source_ = drawingLayer.getSource();
+        this.layerToDrawOn_ = drawingLayer;
 
         this.setActive(true);
     }
@@ -167,67 +173,76 @@ ol.interaction.DrawWithShapes = function(options) {
         return new ol.Feature();
     }
 
+    this.addCreatedFeatureToDrawingLayer_ = function(createdFeature) {
+        this.layerToDrawOn_.getSource().addFeature(createdFeature);
+    }
+
     /**
      * @inheritDoc
      */
     this.handleMapBrowserEvent = function(event) {
-      if(!goog.isDefAndNotNull(this.shapeType_)) {
-        return true;
-      }
       
-      var map = event.map;
-      if (!map.isDef()) {
+        var map = event.map;
+        if (!map.isDef()) {
         return true;
-      }
-      
-      var pass = true;
-      if (this.isPressDragReleaseDrawing_()) {
-        
+        }
+
+        var pass = true;
+
         if(event.type === ol.MapBrowserEvent.EventType.POINTERDOWN) {
             pass = this.handlePointerDown(event);
         }
-        
-        if(event.type === ol.MapBrowserEvent.EventType.POINTERDRAG) {
-            if(goog.isNull(this.sketchFeature_) && !this.isWithinClickTolerance_(event.pixel)) {
-                // Start Drawing
-                this.sketchFeature_ = this.createNewSketchFeature_();
-                this.finishCoordinate_ = event.coordinate;
-                var sketchFeatureGeometry = new ol.geom.Polygon(this.shapeManager_.getSketchFeatureCoordinates([this.downCoordinate_, this.finishCoordinate_]));
-console.log(sketchFeatureGeometry.getCoordinates());
-                this.sketchFeature_.setGeometry(sketchFeatureGeometry);
-            }
 
-            if(!goog.isNull(this.sketchFeature_)) {
-                this.finishCoordinate_ = event.coordinate;
-                var sketchFeatureCoordinates = this.shapeManager_.getSketchFeatureCoordinates([this.downCoordinate_, this.finishCoordinate_]);
-                this.sketchFeature_.getGeometry().setCoordinates(sketchFeatureCoordinates);
-                
-                this.createOrUpdateSketchPoint_(event);
-                this.updateSketchFeatures_();
+        if (this.isPressDragReleaseDrawing_()) {
+        
+            if(event.type === ol.MapBrowserEvent.EventType.POINTERDRAG) {
+                if(goog.isNull(this.sketchFeature_) && !this.isWithinClickTolerance_(event.pixel)) {
+                    // Start Drawing
+                    this.sketchFeature_ = this.createNewSketchFeature_();
+                    this.finishCoordinate_ = event.coordinate;
+                    var sketchFeatureGeometry = new ol.geom.Polygon(this.shapeManager_.getSketchFeatureCoordinates([[this.downCoordinate_, this.finishCoordinate_]]));
+                    this.sketchFeature_.setGeometry(sketchFeatureGeometry);
+
+                    this.dispatchEvent(new ol.DrawEvent(ol.DrawEventType.DRAWSTART, this.sketchFeature_));
+                }
+
+                if(!goog.isNull(this.sketchFeature_)) {
+                    this.finishCoordinate_ = event.coordinate;
+                    var sketchFeatureCoordinates = this.shapeManager_.getSketchFeatureCoordinates([[this.downCoordinate_, this.finishCoordinate_]]);
+                    this.sketchFeature_.getGeometry().setCoordinates(sketchFeatureCoordinates);
+                    
+                    this.createOrUpdateSketchPoint_(event);
+                    this.updateSketchFeatures_();
+                    pass = false;
+                }
+            }
+            
+            if(event.type === ol.MapBrowserEvent.EventType.POINTERUP) {
+                // Finish Drawing
+                var sketchFeature = this.abortDrawing_();
+                if(!goog.isNull(sketchFeature)) {
+                    this.addCreatedFeatureToDrawingLayer_(sketchFeature);
+                    
+                    this.dispatchEvent(new ol.DrawEvent(ol.DrawEventType.DRAWEND, sketchFeature));
+
+                    pass = false;
+                } else {
+                    // Deactivate the interaction when a down-up events are performed without a drag
+                    this.setActive(false);
+                    pass = true;
+                }
+            }
+        
+        } else if(!goog.isNull(this.type_)) {
+            // For click-double click drawings
+            if (event.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
+                pass = this.handlePointerMove_(event);
+            } else if (event.type === ol.MapBrowserEvent.EventType.DBLCLICK) {
                 pass = false;
             }
+            return (goog.base(this, 'handleMapBrowserEvent', event) && pass && !this.isDrawing_());
         }
-        
-        if(event.type === ol.MapBrowserEvent.EventType.POINTERUP) {
-            /*pass = this.handlePointerUp(event);
-            else if (this.shapeType_ != undefined && this.sketchPolygonCoords_[0].length > 2) {
-                this.finishDrawing_(event);
-            }*/
-            /*if(this.isDrawing_()) {
-                this.atFinish_(event);
-                this.finishDrawing_(event);
-                pass = false;
-            }*/
-            pass = this.handlePointerUp(event);
-        }
-        
-      } /*else if (event.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
-        pass = this.handlePointerMove_(event);
-      } else if (event.type === ol.MapBrowserEvent.EventType.DBLCLICK) {
-        pass = false;
-      }
-      return (goog.base(this, 'handleMapBrowserEvent', event) && pass);*/
-      return pass;
+
     };
 
     /**
@@ -305,7 +320,7 @@ console.log(sketchFeatureGeometry.getCoordinates());
         this.sketchPoint_ = this.shapeType_ && this.shapeManager_.getSketchPoint(coordinates) || new ol.Feature(new ol.geom.Point(coordinates));
 
         // Taggign Sketch Point Feature for Manipulate Interaction
-        this.sketchPoint_.isDrawingFeature = true; 
+        //this.sketchPoint_.isDrawingFeature = true;
 
         this.updateSketchFeatures_();
       } else {
