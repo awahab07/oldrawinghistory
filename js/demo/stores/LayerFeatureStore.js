@@ -1,8 +1,8 @@
 define(["dojo/_base/declare", "dojo/store/JsonRest", "dojo/store/Memory"],
 function(declare, JsonRest, Memory){
-	return declare(Memory, {
+    return declare(Memory, {
         url: null,
-		data: [
+        data: [
             {
                 id: 1,
                 title: "Layer 01",
@@ -11,9 +11,6 @@ function(declare, JsonRest, Memory){
                     stroke: {
                         color: 'rgba(250, 100, 60, 1)',
                         width: 3
-                    },
-                    fill: {
-                        color: 'rgba(255, 255, 0, 0.4)'
                     }
                 },
                 features: [
@@ -74,10 +71,7 @@ function(declare, JsonRest, Memory){
                 style: {
                     stroke: {
                         color: 'rgba(80, 200, 20, 1)',
-                        width: 6
-                    },
-                    fill: {
-                        color: 'rgba(250, 5, 5, 0.9)'
+                        width: 2
                     }
                 },
                 features: [
@@ -89,14 +83,13 @@ function(declare, JsonRest, Memory){
                         },
                         style:{
                             fill: {
-                                color: "rgba(250, 5, 5, 1)"
+                                color: "rgba(100, 150, 30)"
                             },
                             stroke: {
-                                color: "rgba(180, 50, 40, 08)",
+                                color: "rgba(180, 50, 40)",
                                 width: 2
                             }
-                        },
-                        rotation: 45
+                        }
                     }
                 ]
             }
@@ -124,10 +117,6 @@ function(declare, JsonRest, Memory){
             layer.features.forEach(function(rawFeature) {
                 var feature = reader.readFeature({type: rawFeature.type, geometry: rawFeature.geometry});
                 //@ TODO account for custom styles
-                
-                // Application specific properties
-                feature.set('rotation', rawFeature.rotation || 0);
-
                 source.addFeature(feature);
             });
             return source;
@@ -149,7 +138,7 @@ function(declare, JsonRest, Memory){
                         width: layer.style && layer.style.stroke && layer.style.stroke.width ||  3
                     }),
                     fill: new ol.style.Fill({
-                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(0, 0, 255, 0.1)'
+                        color: 'rgba(0, 0, 255, 0.1)'
                     })
                 })];
                 styles['MultiLinestring'] = [new ol.style.Style({
@@ -164,7 +153,7 @@ function(declare, JsonRest, Memory){
                         width: 1
                     }),
                     fill: new ol.style.Fill({
-                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 255, 0, 0.1)'
+                        color: 'rgba(255, 255, 0, 0.1)'
                     })
                 })];
                 styles['default'] = [new ol.style.Style({
@@ -173,7 +162,7 @@ function(declare, JsonRest, Memory){
                         width: layer.style && layer.style.stroke && layer.style.stroke.width || 3
                     }),
                     fill: new ol.style.Fill({
-                        color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 0, 0, 0.1)'
+                        color: 'rgba(255, 0, 0, 0.1)'
                     }),
                     image: image
                 })];
@@ -184,5 +173,5 @@ function(declare, JsonRest, Memory){
             })();
             return styleFunction;
         }
-	})
+    })
 });

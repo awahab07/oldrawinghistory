@@ -48,6 +48,8 @@ define([
 
         _featureGeometryChanged: null,
 
+        _fixedMarkerCount: 0,
+        _scalableMarkerCount: 0,
 
         postMixInProperties: function() {
             this.inherited(arguments);
@@ -63,7 +65,7 @@ define([
                 this.activeLayer = this.olLayers[0];
             }
 
-            this.buildOLLayerFromStoreLayer = function(layer) {
+            this.buildOLLayerFromStoreLayer = function(layer) {return;
                 var olLayer = this.layerStore.getOLLayer(layer);
                 this.map.addLayer(olLayer);
 
@@ -81,7 +83,6 @@ define([
 
             this.layerRowClicked = function(rowIndex) {
                 this.activeLayer = this.layerStore.getOLLayerReference(this.layerStore.data[rowIndex]);
-                this.manipulateInteraction.setLayerToManipulateOn(this.activeLayer);
             }
 
             /**
@@ -455,16 +456,169 @@ define([
                 style: this.overlayStyle
             });
 
-            
-            this.activateArrowDrawing = function() {
-                this.drawInteraction.activateShapeDrawingOnLayer("Arrow", this.activeLayer);
-            }
-
             this.activatePolygonDrawing = function() {
-                this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
+                var featureOverlay = new ol.FeatureOverlay({
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(255, 200, 150, 0.2)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: '#eeff33',
+                            width: 1
+                        }),
+                        image: new ol.style.Icon({
+                            src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
+                            width: 18,
+                            height: 18,
+                            opacity: 0.8,
+                            rotation: Math.PI,
+                            xOffset: -3,
+                            yOffset: -2
+                        })
+                    })
+                });
+                //featureOverlay.setMap(this.map);
+
+                var draw = new ol.interaction.DrawWithShapes({
+                        features: this.activeLayer.getSource_().getFeatures(),
+                        type: 'Polygon'
+                    });
+                this.map.addInteraction(draw);
+
+                draw.on("drawend",
+                    function(evt){
+                        this.getSource_().addFeature(evt.feature);
+                        this.map.removeInteraction(draw);
+                        //featureOverlay.removeFeature(evt.feature);
+                        this.featureCreated(evt.feature);
+                    }, this.activeLayer);
             }
 
-            this.drawInteraction = new ol.interaction.DrawWithShapes({});
+            this.activateArrowDrawing = function() {
+                var featureOverlay = new ol.FeatureOverlay({
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: 'rgba(255, 200, 150, 0.2)'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: '#eeff33',
+                            width: 1
+                        }),
+                        image: new ol.style.Icon({
+                            src: require.toUrl('demo/widget/images/polygon-draw-icon.png'),
+                            width: 18,
+                            height: 18,
+                            opacity: 0.8,
+                            rotation: Math.PI,
+                            xOffset: -3,
+                            yOffset: -2
+                        })
+
+                    })
+                });
+                //featureOverlay.setMap(this.map);
+
+                var draw = new ol.interaction.DrawWithShapes({
+                    features: this.activeLayer.getSource_().getFeatures(),
+                    type: 'Polygon',
+                    shapeType: 'Arrow'
+                });
+                this.map.addInteraction(draw);
+
+                draw.on("drawend",
+                    function(evt){
+                        this.getSource_().addFeature(evt.feature);
+                        this.map.removeInteraction(draw);
+                        //featureOverlay.removeFeature(evt.feature);
+                        this.featureCreated(evt.feature);
+                    }, this.activeLayer);
+            }
+
+            this.placeFixedMarker = function() {
+                var markerNumber = '' + ++this._fixedMarkerCount,
+                    iconFeature = new ol.Feature({
+                        geometry: new ol.geom.Point(this.mapView.getCenter())
+                    });
+
+                var iconStyle = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                        anchor: [16, 10],
+                        anchorXUnits: 'pixels',
+                        anchorYUnits: 'pixels',
+                        opacity: 0.9,
+                        src: 'img/red-marker.png'
+                    })),
+                    text: new ol.style.Text({
+                        font: '12px Calibri,sans-serif',
+                        text: markerNumber,
+                        fill: new ol.style.Fill({
+                            color: '#000'
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: '#fff',
+                            width: 2
+                        })
+                    })
+                });
+
+                iconFeature.setStyle(iconStyle);
+
+                this.activeLayer.getSource().addFeature(iconFeature);
+            }
+
+            this.placeScalableMarker = function() {
+                var center = this.mapView.getCenter(),
+                    x = center[0],
+                    y = center[1],
+                    markerRadius = 20 * this.mapView.getResolution(),
+                    step = markerRadius * 0.2,
+                    markerPolygonCoords = [[
+                        [x, y-markerRadius],
+                        [x-step*3, y+markerRadius-step*3], [x-step*2, y+markerRadius-step*2], [x-step, y+markerRadius-step],
+                        [x, y+markerRadius],
+                        [x+step, y+markerRadius-step],[x+step*2, y+markerRadius-step*2], [x+step*3, y+markerRadius-step*3],
+                        [x, y-markerRadius]
+                    ]],
+                    markerPolygon = new ol.geom.Polygon(markerPolygonCoords),
+                    markerNumber = '' + ++this._scalableMarkerCount,
+                    markerFeature = new ol.Feature({
+                        geometry: markerPolygon,
+                        markerNumber: markerNumber
+                    });
+
+                var fixedMarkerStyle = (function() {
+                    var fill = new ol.style.Fill({
+                        color: 'rgba(0, 255, 0, 0.6)'
+                    });
+                    var stroke = new ol.style.Stroke({
+                        color: 'black',
+                        width: 2
+                    });
+                    var textStroke = new ol.style.Stroke({
+                        color: '#fff',
+                        width: 1
+                    });
+                    var textFill = new ol.style.Fill({
+                        color: '#000'
+                    });
+                    return function(feature, resolution) {;
+                        return [new ol.style.Style({
+                            fill: fill,
+                            stroke: stroke,
+                            text: new ol.style.Text({
+                                font: '12px Calibri,sans-serif',
+                                text: markerNumber,
+                                fill: textFill,
+                                stroke: textStroke
+                            })
+                        })];
+                    };
+                })();
+
+                markerFeature.setStyle(fixedMarkerStyle);
+
+                this.activeLayer.getSource().addFeature(markerFeature);
+            }
 
             this.exportCanvas = function(encoding) {
                 this.map.once('postcompose', function(event) {
@@ -475,65 +629,69 @@ define([
                 this.map.renderSync();
             }
 
-            this.manipulateInteraction = new ol.interaction.Manipulate({
-                layerToManipulateOn: this.activeLayer
-                /*features: this.selectInteraction.getFeatures(),
-                style: this.overlayStyle*/
+            this.modifyInteraction = new ol.interaction.ModifyWithEvents({
+                features: this.selectInteraction.getFeatures(),
+                style: this.overlayStyle
             });
 
-
-            this.manipulateInteraction.on("manipulatestart",
+            this.modifyInteraction.on("modifystart",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
 
                     this.activeLayer.beforeFeatureModified(feature);
                 }, this);
 
-            this.manipulateInteraction.on("manipulateend",
+            this.modifyInteraction.on("modifyend",
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
                     this.activeLayer.featureModified(feature);
                 }, this);
 
 
-            this.selectInteraction.on("movestart",
-                function(evt){
-                    console.log("movestart");
-                    var feature = evt.featureCollection.getArray()[0];
-
-                    this.activeLayer.beforeFeatureModified(feature);
-                }, this);
-
-            this.selectInteraction.on("moveend",
-                function(evt){
-                    var feature = evt.featureCollection.getArray()[0];
-                    this.activeLayer.featureModified(feature);
-                }, this);
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({
                 code: 'pixel',
                 units: 'pixels',
-                extent: [0, 0, this.imageWidth, this.imageHeight] // width and height of used image
+                extent: [0, 0, 1600, 1600] // width and height of used image
             });
 
             // Setting up base image layer
-            this.baseImageLayer = new ol.layer.Image({
-                source: new ol.source.ImageStatic({
-                    url: this.imageUrl,
-                    imageSize: [this.imageWidth, this.imageHeight],
-                    projection: this.pixelProjection,
-                    imageExtent: this.pixelProjection.getExtent()
+            this.baseImageLayer = new ol.layer.Tile({
+                source: new ol.source.Zoomify({
+                    url: '/galsys/zommableImages/scroll/',
+                    size: [88146, 4122],
+                    crossOrigin: 'anonymous'
                 })
             });
 
             // Setting up map view based on pixel project and image size
             this.mapView = new ol.View({
                 projection: this.pixelProjection,
-                minZoom: this.minZoom,
-                maxZoom: this.maxZoom,
-                center: ol.extent.getCenter(this.pixelProjection.getExtent()),
-                zoom: this.zoom
+                minZoom: 0,
+                maxZoom: 7,
+                extent: [0, 0, 88146, -4122*4],
+                center: [69000, -2061],
+                zoom: 0
+            })
+
+            // Setting up base image layer
+            this.baseImageLayer = new ol.layer.Image({
+                source: new ol.source.ImageStatic({
+                    url: '/galsys/zommableImages/chess-400x400.png',
+                    imageSize: [400, 400],
+                    imageExtent: [0, 0, 400, 400]
+                })
+            });
+
+            // Setting up map view based on pixel project and image size
+            this.mapView = new ol.View({
+                projection: this.pixelProjection,
+                /*minZoom: 0,
+                maxZoom: 7,*/
+                extent: [100, 200, 200, 200],
+                center: [200, 200],
+                resolution: 1
             })
         },
 
@@ -547,13 +705,21 @@ define([
 
             // Instantiating ol map
             this.map = new ol.Map({
-                interactions: ol.interaction.defaults().extend([this.manipulateInteraction, this.drawInteraction]),
+                controls: ol.control.defaults().extend([
+                    new ol.control.MousePosition({
+                        undefinedHTML: 'outside',
+                        target: "mousePositionTarget",
+                        /*projection: this.pixelProjection,*/
+                        coordinateFormat: function(coordinate) {
+                            return ol.coordinate.format(coordinate, '{x}, {y} px', 1);
+                        }
+                    })
+                ]),
+                interactions: ol.interaction.defaults().extend([this.selectInteraction/*, this.modifyInteraction*/]),
                 layers: [this.baseImageLayer],
                 target: this.mapDiv,
                 view: this.mapView
             });
-
-            this.map.on("manipulatestart", function(evt){console.log("manipulatestart");});
 
             widgetDebug = this; // For dev purposes only
         },
