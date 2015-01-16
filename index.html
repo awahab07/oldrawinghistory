@@ -28,29 +28,31 @@
         <script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
 
         <script type="text/javascript">
-            var layerStore, layerGrid, widgetDebug = null; // For Debugging
+            var layerStore, layerGrid, widgetDebug = null, mapControlsToolbar; // For Debugging
             require([
                         "dojo/parser",
                         "dijit/layout/ContentPane",
                         "dijit/layout/BorderContainer",
                         "dijit/registry",
                         "dojo/_base/lang",
+                        "dojox/mvc/sync",
                         "dojox/grid/DataGrid",
                         "demo/widget/MapWidget",
                         "demo/stores/LayerFeatureStore",
+                        "demo/widget/ControlsToolbar",
                         "dojo/data/ObjectStore",
                         "dojo/store/Observable",
                         "dojo/request",
                         "dojo/ready",
                         "dojo/domReady!"
                     ],
-                    function(parser, ContentPane, BorderContainer, registry, lang, DataGrid, MapWidget, LayerFeatureStore, ObjectStore, Observable, request, ready) {
+                    function(parser, ContentPane, BorderContainer, registry, lang, sync, DataGrid, MapWidget, LayerFeatureStore, ControlsToolbar, ObjectStore, Observable, request, ready) {
                         parser.parse();
 
                         ready(function(){
                             // The Controller Code
                             var mapWidget = registry.byId("mapWidgetId"),
-                                    mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
+                                mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
                                     undoButton = registry.byId("mapUndoButtonId"),
                                     redoButton = registry.byId("mapRedoButtonId"),
                                     deleteButton = registry.byId("mapDeleteButtonId"),
@@ -59,7 +61,20 @@
                                     fixedMarkerButton = registry.byId("fixedMarkerButtonId"),
                                     scalableMarkerButton = registry.byId("scalableMarkerButtonId"),
                                     exportToPngButton = registry.byId("exportToPngButtonId"),
-                                    exportToJpgButton = registry.byId("exportToJpgButtonId");
+                                    exportToJpgButton = registry.byId("exportToJpgButtonId"),
+                                    mapControlsToolbar = registry.byId("controlsToolbarId");
+
+                            sync(mapControlsToolbar, "zoomValue", mapWidget, "sliderResolution", sync.from);
+                            sync(mapWidget, "mapResolution", mapControlsToolbar, "mapZoomValue", sync.from);
+
+                            mapControlsToolbar.watch("margin", function(a, b, c){
+                               //console.log(mapControlsToolbar.getMargins());
+                                mapWidget.marginsUpdates(mapControlsToolbar.getMargins());
+                            });
+
+                            // Binding Flags
+                            sync(mapControlsToolbar, "shouldGrayOut", mapWidget, "shouldGrayOut", sync.from);
+                            sync(mapControlsToolbar, "shouldConstrainPanning", mapWidget, "shouldConstrainPanning", sync.from);
 
                             layerStore = new Observable(new LayerFeatureStore());
                             mapWidget.processLayerStore(layerStore);
@@ -111,10 +126,13 @@
             data-dojo-type="dijit/layout/BorderContainer"
             data-dojo-props="design: 'headline'">
                 
-                <div style="height:5%" 
+                <div style="height:11%"
                     class="edgePanel"
                     data-dojo-type="dijit/layout/ContentPane"
                     data-dojo-props="region: 'top'">
+
+                    <!-- Map Controls Toolbar -->
+                    <div id="controlsToolbarId" data-dojo-type="demo/widget/ControlsToolbar"></div>
 
                 </div>
             
@@ -179,7 +197,7 @@
                             data-dojo-props="region: 'center'">
 
                             <div id="mapWidgetId" data-dojo-type="demo/widget/MapWidget"
-                                data-dojo-props="imageUrl:'img/scenery-800x600.jpg', width:'400px', height:'400px', imageWidth:800, imageHeight:600, minZoom:0, maxZoom:10, zoomFactor:0.5, zoom:1"></div>
+                                data-dojo-props="imageUrl:'img/scenery-800x600.jpg', width:'100%', height:'100%', imageWidth:800, imageHeight:600, minZoom:0, maxZoom:10, zoomFactor:0.5, zoom:1"></div>
 
                         </div>
 

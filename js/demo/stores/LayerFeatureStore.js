@@ -1,8 +1,8 @@
 define(["dojo/_base/declare", "dojo/store/JsonRest", "dojo/store/Memory"],
 function(declare, JsonRest, Memory){
-    return declare(Memory, {
+	return declare(Memory, {
         url: null,
-        data: [
+		data: [
             {
                 id: 1,
                 title: "Layer 01",
@@ -18,7 +18,7 @@ function(declare, JsonRest, Memory){
                         type: 'Feature',
                         geometry: {
                             type: 'Point',
-                            coordinates: [487.34909155626224, 528.7831113832901]
+                            coordinates: [100, 100]
                         },
                         style:{
                             fill: {
@@ -34,7 +34,7 @@ function(declare, JsonRest, Memory){
                         type: 'Feature',
                         geometry: {
                             type: 'MultiPoint',
-                            coordinates: [[727.9740915562622, 433.8178336055123], [717.0365915562622, 377.5678336055123]]
+                            coordinates: [[300, 400], [400, 300]]
                         },
                         style:{
                             fill: {
@@ -50,7 +50,7 @@ function(declare, JsonRest, Memory){
                         type: 'Feature',
                         geometry: {
                             type: 'LineString',
-                            coordinates: [[335.2986052686324, 149.7442083623813], [214.98610526863243, 290.3692083623813], [146.23610526863246, 284.1192083623814], [36.8611052686324, 123.1817083623813], [56.95039098291818, 57.5567083623813], [124.13789098291818, 66.9317083623813], [189.76289098291818, 76.3067083623813], [233.51289098291818, 76.3067083623813], [339.7628909829182, 80.9942083623813], [338.2003909829182, 145.0567083623813]]
+                            coordinates: [[50, 200], [50, 300], [150, 300], [150, 200], [50, 200]]
                         },
                         style:{
                             fill: {
@@ -75,7 +75,7 @@ function(declare, JsonRest, Memory){
                     }
                 },
                 features: [
-                    {
+                    /*{
                         type: 'Feature',
                         geometry: {
                             type: 'LineString',
@@ -90,7 +90,7 @@ function(declare, JsonRest, Memory){
                                 width: 2
                             }
                         }
-                    }
+                    }*/
                 ]
             }
         ],
@@ -114,11 +114,13 @@ function(declare, JsonRest, Memory){
         getLayerOLSource: function(layer) {
             var source = new ol.source.Vector(),
                 reader = new ol.format.GeoJSON();
+
             layer.features.forEach(function(rawFeature) {
                 var feature = reader.readFeature({type: rawFeature.type, geometry: rawFeature.geometry});
                 //@ TODO account for custom styles
                 source.addFeature(feature);
             });
+
             return source;
         },
 
@@ -173,5 +175,5 @@ function(declare, JsonRest, Memory){
             })();
             return styleFunction;
         }
-    })
+	})
 });

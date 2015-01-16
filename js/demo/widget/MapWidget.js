@@ -32,10 +32,29 @@ define([
         pixelProjection: null,
         baseImageLayer: null,
         mapView: null,
+
+
         minZoom:0,
         maxZoom:28,
         zoomFactor:2,
         zoom: 1,
+
+        mapResolution: 1,
+        sliderResolution: 100, // Tracking and watching resolution coming from zoom slider
+        minResolution: 0.1,
+        maxResolution: 10,
+        resolutionStep: 0.25,
+
+        marginTop: 0,
+        marginRight: 0,
+        marginBottom: 0,
+        marginLeft: 0,
+
+        shouldGrayOut: true,
+        shouldConstrainPanning: true,
+
+        imageExtent: null,
+
         map: null,
         overlayStyle: null,
         selectInteraction: null,
@@ -51,6 +70,8 @@ define([
         _fixedMarkerCount: 0,
         _scalableMarkerCount: 0,
 
+        olResolution: 1,
+
         postMixInProperties: function() {
             this.inherited(arguments);
 
@@ -65,7 +86,7 @@ define([
                 this.activeLayer = this.olLayers[0];
             }
 
-            this.buildOLLayerFromStoreLayer = function(layer) {return;
+            this.buildOLLayerFromStoreLayer = function(layer) {
                 var olLayer = this.layerStore.getOLLayer(layer);
                 this.map.addLayer(olLayer);
 
@@ -649,14 +670,25 @@ define([
 
 
 
+            this.imageUrl = '/galsys/zommableImages/chess-400x400.jpg';
+            this.imageSize = [400, 400];
+            this.imageCenter = [200, 200];
+            this.imageExtent = [0, 0, 400, 400];
+            this.drawingExtent = [
+                    this.imageExtent[0] - this.marginLeft,
+                    this.imageExtent[1] - this.marginBottom,
+                    this.imageExtent[2] + this.marginRight,
+                    this.imageExtent[3] + this.marginTop
+                ];
+
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({
                 code: 'pixel',
                 units: 'pixels',
-                extent: [0, 0, 1600, 1600] // width and height of used image
+                extent: this.drawingExtent // width and height of used image
             });
 
-            // Setting up base image layer
+            /*// Setting up base image layer
             this.baseImageLayer = new ol.layer.Tile({
                 source: new ol.source.Zoomify({
                     url: '/galsys/zommableImages/scroll/',
@@ -673,55 +705,131 @@ define([
                 extent: [0, 0, 88146, -4122*4],
                 center: [69000, -2061],
                 zoom: 0
-            })
+            })*/
 
             // Setting up base image layer
             this.baseImageLayer = new ol.layer.Image({
                 source: new ol.source.ImageStatic({
-                    url: '/galsys/zommableImages/chess-400x400.png',
-                    imageSize: [400, 400],
-                    imageExtent: [0, 0, 400, 400]
+                    url: this.imageUrl,
+                    imageSize: this.imageSize,
+                    imageExtent: this.imageExtent
                 })
             });
+
+
+            this.viewResolutionChanged = function() {
+                if(!isNaN(this.mapView.get('resolution')))
+                    this.set('mapResolution', this.mapView.get('resolution'));
+            }
+
+            this.buildViewResolutions = function() {
+                return [10, 7.5, 5, 2.5, 1, 0.5, 0.25, 0.1, 0.075, 0.05, 0.025, 0.01, 0.0075, 0.005, 0.0025, 0.001];
+            }
 
             // Setting up map view based on pixel project and image size
             this.mapView = new ol.View({
                 projection: this.pixelProjection,
                 /*minZoom: 0,
                 maxZoom: 7,*/
-                extent: [100, 200, 200, 200],
-                center: [200, 200],
-                resolution: 1
-            })
+                extent: this.drawingExtent,
+                center: this.imageCenter,
+                resolution: 1,
+                resolutions: this.buildViewResolutions()
+            });
+
+            this.mapView.on("change:resolution", this.viewResolutionChanged, this);
+
+            this.watch('sliderResolution', function(attr, oldVal, newVal) {
+                if(!isNaN(newVal)) {
+                    var mapResolution = newVal / 100;
+                    this.mapView.setResolution(mapResolution);
+                }
+            });
+
+            this.marginsUpdates = function(margins) {
+                this.drawingExtent = [
+                        this.imageExtent[0] - margins[3],
+                        this.imageExtent[1] - margins[2],
+                        this.imageExtent[2] + margins[1],
+                        this.imageExtent[3] + margins[0]
+                ];
+
+                //this.map.updateSize();
+                this.map.renderSync();
+            };
+
+            this.initializeOLMap = function() {
+                var self = this;
+
+                domStyle.set(this.mapDiv, "width", this.width);
+                domStyle.set(this.mapDiv, "height", this.height);
+                domStyle.set(this.mapDiv, "margin", '0 auto');
+
+                // Instantiating ol map
+                this.map = new ol.Map({
+                    controls: [
+                        new ol.control.MousePosition({
+                            undefinedHTML: 'outside',
+                            target: "mousePositionContainerId",
+                            /*projection: this.pixelProjection,*/
+                            coordinateFormat: function(coordinate) {
+                                return ol.coordinate.format(coordinate, '{x}, {y} px', 1);
+                            }
+                        })
+                    ],
+                    interactions: ol.interaction.defaults().extend([this.selectInteraction/*, this.modifyInteraction*/]),
+                    layers: [this.baseImageLayer],
+                    target: this.mapDiv,
+                    view: this.mapView
+                });
+
+                this.watch("shouldGrayOut", function(){
+                    this.map.renderSync();
+                });
+
+                this.map.on('postcompose', function(event) {
+                    if(self.shouldGrayOut) {
+                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.drawingExtent[0], self.drawingExtent[1]]),
+                            drawingTopRight = self.map.getPixelFromCoordinate([self.drawingExtent[2], self.drawingExtent[3]]);
+
+                        var ctx = event.context;
+                        ctx.beginPath();
+                        //ctx.moveTo(drawingBottomLeft[0], drawingBottomLeft[1]);
+                        //ctx.lineTo(drawingBottomLeft[0], drawingTopRight[1]);
+                        //ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], this.imageSize[0]+this.marginRight, this.imageSize[1]+this.marginTop);
+                        //ctx.rect(drawingBottomLeft[0]-100, drawingBottomLeft[1]-100, this.imageSize[0]+this.marginRight+100, this.imageSize[1]+this.marginTop+100);
+                        ctx.rect(0, 0, drawingBottomLeft[0], 100000);
+                        ctx.rect(0, 0, 100000, drawingTopRight[1] );
+                        ctx.rect(drawingTopRight[0], 0, 100000, 100000 );
+                        ctx.rect(0, drawingBottomLeft[1], 100000, 100000 );
+                        /*ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], drawingTopRight[0]-drawingBottomLeft[0], drawingTopRight[1]-drawingBottomLeft[1]);
+                        ctx.rect(1000, 0, -1000, 1000);*/
+                        ctx.fillStyle = "grey";
+                        ctx.fill();
+                        //ctx.stroke();
+                        /*var canvas = event.context.canvas;
+                        event.context.fillStyle = "grey";
+                        event.context.fillRect(0, 0, 400, 400);*/
+                    }
+                }, this);
+                this.map.renderSync();
+            }
+
         },
 
         postCreate: function() {
 
             this.inherited(arguments);
 
-            domStyle.set(this.mapDiv, "width", this.width);
-            domStyle.set(this.mapDiv, "height", this.height);
-            domStyle.set(this.mapDiv, "margin", '0 auto');
-
-            // Instantiating ol map
-            this.map = new ol.Map({
-                controls: ol.control.defaults().extend([
-                    new ol.control.MousePosition({
-                        undefinedHTML: 'outside',
-                        target: "mousePositionTarget",
-                        /*projection: this.pixelProjection,*/
-                        coordinateFormat: function(coordinate) {
-                            return ol.coordinate.format(coordinate, '{x}, {y} px', 1);
-                        }
-                    })
-                ]),
-                interactions: ol.interaction.defaults().extend([this.selectInteraction/*, this.modifyInteraction*/]),
-                layers: [this.baseImageLayer],
-                target: this.mapDiv,
-                view: this.mapView
-            });
-
             widgetDebug = this; // For dev purposes only
+        },
+
+        resize: function() {
+            this.inherited(arguments);
+
+            if(!this.map) {
+                this.initializeOLMap();
+            }
         },
 
         startup: function() {
