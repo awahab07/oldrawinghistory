@@ -292,7 +292,7 @@ ol.interaction.Manipulate = function(opt_options) {
                 this.dragFromPx_ = null;
             }
             
-            return false;
+            //return false;
         }
 
 		var selectFeatures = this.featureOverlayForSelect_.getFeatures();
@@ -358,8 +358,11 @@ ol.interaction.Manipulate = function(opt_options) {
 					this.featureUnSelected_(feature);
 				}
 			}
+
+            if(goog.isDef(feature))
+                return false;
 		}
-		return false;
+		return true;
 	};
 
 	this.shouldRouteToSelect_ = function(mapBrowserEvent) {
