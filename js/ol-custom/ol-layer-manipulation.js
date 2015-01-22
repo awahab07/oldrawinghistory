@@ -152,7 +152,7 @@ ol.layer.Manipulation = function(opt_options) {
 
     this.rotateHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
         var manipulationLayer = this,
-            shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(),
+            shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => Uncaught TypeError: Cannot read property 'getExtent' of null
             shapeFeatureCenter = ol.extent.getCenter(shapeFeatureExtent),
             centerCoordinate = map.getCoordinateFromPixel(shapeFeatureCenter),
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
@@ -196,7 +196,27 @@ ol.layer.Manipulation = function(opt_options) {
         var feature = this.shape_;
 		
         goog.asserts.assertInstanceof(feature.selectBoxRectangle_, ol.Feature);
-		var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates();
+		
+        var selectBoxCoordinates = feature.selectBoxRectangle_.getGeometry().getCoordinates(),
+            selectBoxExtentCenter = ol.extent.getCenter(feature.selectBoxRectangle_.getGeometry().getExtent()),
+            i;
+
+        // Determining directional resize coodinates taking in account the current rotation.
+        var rotatedResizeHandleCoordinates = [
+            selectBoxCoordinates[0][0],
+            [ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ],
+            selectBoxCoordinates[0][1],
+            [ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ],
+            selectBoxCoordinates[0][5],
+            [ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ],
+            selectBoxCoordinates[0][6],
+            [ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ]
+        ];
+        
+        /*for( i=0; i < rotatedResizeHandleCoordinates.length; i++ ) {
+            var rotatedCoordinate = rotatedResizeHandleCoordinates[i];
+            console.log(i, goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]) );
+        }*/
 
 		feature.resizeHandleFeatures_ = [
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, 1),
@@ -228,7 +248,7 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.resizeHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
-        var shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(),
+        var shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => TypeError: this.shapeOriginalGeometry_ is null
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
