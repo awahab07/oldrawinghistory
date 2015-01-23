@@ -261,7 +261,7 @@ ol.layer.Manipulation = function(opt_options) {
             updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
             displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
             displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
-
+console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updatedPositionReferenceCoordinate", updatedPositionReferenceCoordinate);
 
         var shapeCoordinates = this.grabCoordinatesArrayFromGeometry_(this.shapeOriginalGeometry_.clone());
         
