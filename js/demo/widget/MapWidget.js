@@ -475,27 +475,6 @@ define([
                 this.map.renderSync();
             }
 
-            this.manipulateInteraction = new ol.interaction.Manipulate({
-                layerToManipulateOn: this.activeLayer
-                /*features: this.selectInteraction.getFeatures(),
-                style: this.overlayStyle*/
-            });
-
-
-            this.manipulateInteraction.on("manipulatestart",
-                function(evt){
-                    var feature = evt.featureCollection.getArray()[0];
-
-                    this.activeLayer.beforeFeatureModified(feature);
-                }, this);
-
-            this.manipulateInteraction.on("manipulateend",
-                function(evt){
-                    var feature = evt.featureCollection.getArray()[0];
-                    this.activeLayer.featureModified(feature);
-                }, this);
-
-
             this.selectInteraction.on("movestart",
                 function(evt){
                     console.log("movestart");
@@ -535,6 +514,28 @@ define([
                 center: ol.extent.getCenter(this.pixelProjection.getExtent()),
                 zoom: this.zoom
             })
+
+
+            // Manipulate Interaction, taking account baseImage manipulation
+            this.manipulateInteraction = new ol.interaction.Manipulate({
+                manipulatableBaseLayer: this.baseImageLayer,
+                layerToManipulateOn: this.activeLayer
+                /*features: this.selectInteraction.getFeatures(),
+                style: this.overlayStyle*/
+            });
+
+            this.manipulateInteraction.on("manipulatestart",
+                function(evt){
+                    var feature = evt.featureCollection.getArray()[0];
+
+                    this.activeLayer.beforeFeatureModified(feature);
+                }, this);
+
+            this.manipulateInteraction.on("manipulateend",
+                function(evt){
+                    var feature = evt.featureCollection.getArray()[0];
+                    this.activeLayer.featureModified(feature);
+                }, this);            
         },
 
         postCreate: function() {

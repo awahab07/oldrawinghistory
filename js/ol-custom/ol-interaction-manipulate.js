@@ -165,8 +165,12 @@ ol.interaction.Manipulate = function(opt_options) {
 	options.features = this.features_;
     goog.base(this, options);
 
+    this.manipulatableBaseLayer_ = opt_options.manipulatableBaseLayer;
+
     // Manipulation variables
-    this.manipulationLayer_ = new ol.layer.Manipulation();
+    this.manipulationLayer_ = new ol.layer.Manipulation({
+    	manipulatableBaseLayer: this.manipulatableBaseLayer_
+    });
     this.layerFilter_ = function(layer) {
     	var isSelectedLayerOnly = this.layerToManipulateOn_ ? this.layerToManipulateOn_ == layer : true;
     		isSelectedLayerOnly = isSelectedLayerOnly || (goog.isDef(layer.isHandlesLayer) && layer.isHandlesLayer);
@@ -384,6 +388,12 @@ ol.interaction.Manipulate = function(opt_options) {
 	this.handleMapBrowserEvent = function(mapBrowserEvent) {
 	  var handled = false;
 	  if(this.shouldRouteToSelect_(mapBrowserEvent)) {
+	  	// Also if a manipulatable baseLayer is provided, pass the event to Manipulation Layer to allow it to check if
+	  	// there's any need to show baseLayer manipulation handles based on the current pointer position
+	  	if( goog.isDefAndNotNull(this.manipulatableBaseLayer_) ) {
+	  		this.manipulationLayer_.showOrHideBaseLayerManipulationHandles(mapBrowserEvent);
+	  	}
+
 	  	handled = this.handleMapBrowserEventForSelect_(mapBrowserEvent);
 	  }
 	  

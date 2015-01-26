@@ -29,6 +29,9 @@ ol.layer.Manipulation = function(opt_options) {
 
 	goog.base(this);
 
+    // Check if baseLayer is porvided to accomodate baseImage manipulation (Proportion Scale and Move only)
+    this.manipulatableBaseLayer_ = opt_options.manipulatableBaseLayer;
+
     // @TODO make the url dynamic via proper configuration
     this.iconsBaseUrl_ = opt_options.iconsBaseUrl || "js/demo/widget/images/";
 
@@ -548,6 +551,58 @@ console.log("shapeFeatureWidth", shapeFeatureWidth, "shapeFeatureHeight", shapeF
         }
     	
         this.getSource().addFeature(selectBoxFeature);
+    }
+
+    this.showOrHideBaseLayerManipulationHandles = function(mapBrowserEvent) {
+        var baseLayer = this.manipulatableBaseLayer_;
+        if(baseLayer) {
+            baseLayer.once("precompose", function(evt) {
+                var layerObj = evt.frameState.layerRef;
+                if(layerObj) {
+                    layerObj.modifyImageTransform = function(imageTransform) {
+                        
+                        if(!baseLayer.transformFactor)
+                            baseLayer.transformFactor = 1;
+                        
+
+                        if(baseLayer.transformFactor >= 0.5) {
+                            imageTransform[0] *= baseLayer.transformFactor;
+                            imageTransform[5] *= baseLayer.transformFactor;
+                        } else {
+                            imageTransform[0] *= 0.5;
+                            imageTransform[5] *= 0.5;
+                        }
+
+                        baseLayer.transformFactor -= 0.005;
+
+                        return imageTransform;
+                    }
+                }
+            }, this);
+
+            baseLayer.once("postcompose", function(evt) {
+                baseLayer.currentExtent_ = evt.frameState.extent;
+            }, this);
+
+            /*if(baseLayer.currentExtent_) {
+                var baseLayerResizeHandleCoords = [[
+                    [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1]], [baseLayer.currentExtent_[2]-5, baseLayer.currentExtent_[1]], [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1] + 5], [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1]]
+                    //[50, 50], [100, 100], [200, 50], [50, 50]
+                ]];
+
+                var baseLayerResizeHandleFeature = new ol.Feature({
+                    geometry: new ol.geom.Polygon(baseLayerResizeHandleCoords)
+                });
+
+                baseLayerResizeHandleFeature.setStyle(new ol.style.Style({
+                    fill: new ol.style.Fill({
+                        color: "rgba(220, 150, 20, 0.8)"
+                    })
+                }));
+
+                this.getSource().addFeature(baseLayerResizeHandleFeature);
+            }*/
+        }
     }
 }
 goog.inherits(ol.layer.Manipulation, ol.layer.Vector);
