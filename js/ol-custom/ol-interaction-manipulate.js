@@ -284,7 +284,6 @@ ol.interaction.Manipulate = function(opt_options) {
                 	this.dragFromPx_ = mapBrowserEvent.pixel;
                 }
 
-                //this.manipulationLayer_.updateSelectBoxForFeature(this.draggingFeature_);
             }
 
             if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
@@ -508,7 +507,8 @@ ol.interaction.Manipulate = function(opt_options) {
         this.manipulatingFeature_ = null; // To be populated when edited
     }
 
-    this.featureUnSelected_ = function(feature) {
+    this.featureUnSelected_ = function(feature) {console.log("feature unselected");
+    	this.draggingFeature_ = null;
     	this.manipulationLayer_.shapeUnSelected(feature);
     }
 

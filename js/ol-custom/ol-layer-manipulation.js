@@ -92,14 +92,33 @@ ol.layer.Manipulation = function(opt_options) {
         this.shape_ = shapeFeature;
         this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
         
+        // Initialize state trackers
+        if( !shapeFeature.get('rotationDegrees') ) {
+            shapeFeature.set('rotationDegrees', 0);
+        }
+
+        if( !shapeFeature.get('rotationDegreesCurrentDrag') ) {
+            shapeFeature.set('rotationDegreesCurrentDrag', 0);
+        }
+
         this.displaySelectBoxForFeature();
         this.displayResizeHandlesForFeature();
         this.displayRotateHandleForFeature();
     }
 
+    /**
+     * Called by ol.layer.manipulate when dragging is done upon Pointer Up event
+     * @param  {ol.Feature} shapeOrHandleFeature For "move" refers to shapeFeature, for rotation or scale refers to manipulationFeature
+     */
     this.draggingDone = function(shapeOrHandleFeature) {
         var shapeFeature = goog.isDef(shapeOrHandleFeature.isHandleFeature) && shapeOrHandleFeature.isHandleFeature ? shapeOrHandleFeature.manipulatingFeature_ : shapeOrHandleFeature;
         this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
+
+        // Preserving accumulative rotation
+        if(shapeOrHandleFeature.handleType && shapeOrHandleFeature.handleType == ol.ManipulationFeatureType.ROTATEHANDLE) {
+            shapeFeature.set('rotationDegrees', this.getAccumulativeRotationForFeature_(shapeFeature));
+            shapeFeature.set('rotationDegreesCurrentDrag', 0);
+        }
     }
 
     this.shapeManipulated = function(shapeFeature) {
@@ -167,7 +186,9 @@ ol.layer.Manipulation = function(opt_options) {
         this.shape_.setGeometry( this.rotateGeometryAroundCoordinate_(this.shapeOriginalGeometry_.clone(), shapeFeatureCenter, differenceAngleDegrees) );
 
         // Updating attribute to preserve rotation
-        this.shape_.set('rotation', differenceAngleDegrees);
+        //var shapeCummulativeAngleDegrees = goog.math.angleDifference( 360, (this.shape_.get('rotationDegrees') || 0) + differenceAngleDegrees );
+        //console.log("differenceAngleDegrees:", differenceAngleDegrees, "getRot", this.shape_.get('rotationDegrees'), "shapeCummulativeAngleDegrees", shapeCummulativeAngleDegrees);
+        this.shape_.set('rotationDegreesCurrentDrag', differenceAngleDegrees);
         this.shape_.set('rotationCenter', shapeFeatureCenter);
     }
 
@@ -202,23 +223,72 @@ ol.layer.Manipulation = function(opt_options) {
             i;
 
         // Determining directional resize coodinates taking in account the current rotation.
-        var rotatedResizeHandleCoordinates = [
-            selectBoxCoordinates[0][0],
-            [ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ],
-            selectBoxCoordinates[0][1],
-            [ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ],
-            selectBoxCoordinates[0][5],
-            [ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ],
-            selectBoxCoordinates[0][6],
-            [ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ]
+        var rotatedResizeHandleObjs = [
+            { handleCoordinate: selectBoxCoordinates[0][0], resizesX: true, resizesY: true, signXChange: 1, signYChange: 1},
+            { handleCoordinate: [ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ], resizesX: true, resizesY: false, signXChange: 1, signYChange: -1},
+            { handleCoordinate: selectBoxCoordinates[0][1], resizesX: true, resizesY: true, signXChange: 1, signYChange: -1},
+            { handleCoordinate: [ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ], resizesX: false, resizesY: true, signXChange: 1, signYChange: -1},
+            { handleCoordinate: selectBoxCoordinates[0][5], resizesX: true, resizesY: true, signXChange: -1, signYChange: -1},
+            { handleCoordinate: [ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ], resizesX: true, resizesY: false, signXChange: -1, signYChange: -1},
+            { handleCoordinate: selectBoxCoordinates[0][6], resizesX: true, resizesY: true, signXChange: -1, signYChange: 1},
+            { handleCoordinate: [ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ], resizesX: false, resizesY: true, signXChange: 1, signYChange: 1}
         ];
-        
-        /*for( i=0; i < rotatedResizeHandleCoordinates.length; i++ ) {
-            var rotatedCoordinate = rotatedResizeHandleCoordinates[i];
-            console.log(i, goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]) );
-        }*/
 
-		feature.resizeHandleFeatures_ = [
+        // Assigning position reference coordinates
+        rotatedResizeHandleObjs[0].positionRefCoord = rotatedResizeHandleObjs[4].handleCoordinate;
+        rotatedResizeHandleObjs[1].positionRefCoord = rotatedResizeHandleObjs[5].handleCoordinate;
+        rotatedResizeHandleObjs[2].positionRefCoord = rotatedResizeHandleObjs[6].handleCoordinate;
+        rotatedResizeHandleObjs[3].positionRefCoord = rotatedResizeHandleObjs[7].handleCoordinate;
+        rotatedResizeHandleObjs[4].positionRefCoord = rotatedResizeHandleObjs[0].handleCoordinate;
+        rotatedResizeHandleObjs[5].positionRefCoord = rotatedResizeHandleObjs[1].handleCoordinate;
+        rotatedResizeHandleObjs[6].positionRefCoord = rotatedResizeHandleObjs[2].handleCoordinate;
+        rotatedResizeHandleObjs[7].positionRefCoord = rotatedResizeHandleObjs[3].handleCoordinate;
+        
+        feature.resizeHandleFeatures_ = [];
+
+        for( i=0; i < rotatedResizeHandleObjs.length; i++ ) {
+            var handlePropertiesObject = rotatedResizeHandleObjs[i],
+                rotatedCoordinate = handlePropertiesObject.handleCoordinate,
+                resizeHandleAngle = goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]),
+                cursorStyle = "";
+
+
+            // Around 225 Degrees
+            if(resizeHandleAngle <= 247.5 && resizeHandleAngle > 202.4)
+                cursorStyle = "nesw-resize";
+
+            // Around 180 Degrees
+            if(resizeHandleAngle <= 202.5 && resizeHandleAngle > 157.5)
+                cursorStyle = "ew-resize";
+
+            // Around 135 Degrees
+            if(resizeHandleAngle <= 157.5 && resizeHandleAngle > 112.5)
+                cursorStyle = "nwse-resize";
+
+            // Around 90 Degrees
+            if(resizeHandleAngle <= 112.5 && resizeHandleAngle > 67.5)
+                cursorStyle = "ns-resize";
+
+            // Around 45 Degrees
+            if(resizeHandleAngle <= 67.5 && resizeHandleAngle > 22.5)
+                cursorStyle = "nesw-resize";
+
+            // Around 0 Degrees
+            if( (resizeHandleAngle <= 22.5 && resizeHandleAngle > 0) || (resizeHandleAngle <= 360 && resizeHandleAngle > 337.5) )
+                cursorStyle = "ew-resize";
+
+            // Around 315 Degrees
+            if(resizeHandleAngle <= 337.5 && resizeHandleAngle > 292.5)
+                cursorStyle = "nwse-resize";
+
+            // Around 270 Degrees
+            if(resizeHandleAngle <= 292.5 && resizeHandleAngle > 247.5)
+                cursorStyle = "ns-resize";
+
+            feature.resizeHandleFeatures_.push(this.createResizeHandleForFeature_(feature, rotatedCoordinate, handlePropertiesObject.resizesX, handlePropertiesObject.resizesY, cursorStyle, handlePropertiesObject.positionRefCoord, handlePropertiesObject.signXChange, handlePropertiesObject.signYChange));
+        }       
+
+		/*feature.resizeHandleFeatures_ = [
 			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, 1),
 
 			this.createResizeHandleForFeature_(feature, 
@@ -242,13 +312,19 @@ ol.layer.Manipulation = function(opt_options) {
 			this.createResizeHandleForFeature_(feature, 
 				[ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ],
 				false, true, "ns-resize", [0, 3], 1, 1)
-		];
+		];*/
 		
 		this.handlesLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
     }
 
     this.resizeHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
-        var shapeFeatureExtent = this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => TypeError: this.shapeOriginalGeometry_ is null
+        var unRotatedShapeGeometry = this.shape_.getGeometry().clone();
+        if(this.shape_.get('rotationCenter')) {
+            var rotatedAngle = goog.math.angleDifference( 360, this.shape_.get('rotationDegreesCurrentDrag') + this.shape_.get('rotationDegrees'));
+            unRotatedShapeGeometry = this.rotateGeometryAroundCoordinate_( unRotatedShapeGeometry, this.shape_.get('rotationCenter'), -1 * rotatedAngle );
+        }
+        
+        var shapeFeatureExtent = unRotatedShapeGeometry.getExtent(), //this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => TypeError: this.shapeOriginalGeometry_ is null
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
@@ -257,17 +333,17 @@ ol.layer.Manipulation = function(opt_options) {
             dragYDistance = handleFeature.signYChange_ * (toCoordinate[1] - fromCoordinate[1]),
             scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
             scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
-            positionReferenceCoordinate = [ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
+            positionReferenceCoordinate = handleFeature.referenceExtentCoordinate_, //[ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
             updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
             displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
             displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
-console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updatedPositionReferenceCoordinate", updatedPositionReferenceCoordinate);
+console.log("shapeFeatureWidth", shapeFeatureWidth, "shapeFeatureHeight", shapeFeatureHeight);
 
         var shapeCoordinates = this.grabCoordinatesArrayFromGeometry_(this.shapeOriginalGeometry_.clone());
         
         // Un Rotating coordinates if shape is rotated
-        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
-            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotation'));
+        if(this.shape_.get('rotationDegrees') && this.shape_.get('rotationCenter')) {
+            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotationDegrees'));
         }
         
         // Scaling/Resizing coordinates
@@ -276,8 +352,8 @@ console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updated
         });
 
         // Re Rotating coordinates if shape is rotated
-        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
-            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), this.shape_.get('rotation'));
+        if(this.shape_.get('rotationDegrees') && this.shape_.get('rotationCenter')) {
+            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), this.shape_.get('rotationDegrees'));
         }
 
         shapeCoordinates = this.wrapCoordinatesArrayForGeometry_(this.shape_.getGeometry(), shapeCoordinates);
@@ -333,6 +409,14 @@ console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updated
 
         geometry.setCoordinates(rotatedGeometryCoordinates, geometryLayout);
         return geometry;
+    }
+
+    this.getAccumulativeRotationForFeature_ = function(shapeFeature) {
+        if(!isNaN( shapeFeature.get('rotationDegreesCurrentDrag')) ) {
+            return goog.math.angleDifference( 360, shapeFeature.get('rotationDegreesCurrentDrag') + shapeFeature.get('rotationDegrees'));
+        } else {
+            return shapeFeature.get('rotationDegrees');
+        }
     }
 
     this.rotateFeature_ = function(feature, centerCoordinate, angleDegreesToRotate) {
@@ -399,16 +483,18 @@ console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updated
     }
 
 	/**
-     * getSelectBoxFeature_ returns a feature to display a dashed rectangle around the extent of the selected
+     * createSelectBoxFeature_ returns a feature to display a dashed rectangle around the extent of the selected
      * feature to depict the feature is selected and can be moved by dragging
-     * @param  {ol.Feature} feature Fature to use for determining coordinates of SelectBox Polygon (Rectangle)
+     * @param  {ol.Feature} feature Feature to use for determining coordinates of SelectBox Polygon (Rectangle)
      * @return {ol.Feature}         new feature that represents the bouding rectangle
      */
     this.createSelectBoxFeature_ = function(feature) {
         var geometry = feature.getGeometry().clone();
-        if(feature.get('rotation') && feature.get('rotationCenter')) {
-            geometry = this.rotateGeometryAroundCoordinate_( geometry, feature.get('rotationCenter'), -1 * feature.get('rotation') );
+        if(feature.get('rotationCenter')) {
+            var rotatedAngle = goog.math.angleDifference( 360, feature.get('rotationDegreesCurrentDrag') + feature.get('rotationDegrees'));
+            geometry = this.rotateGeometryAroundCoordinate_( geometry, feature.get('rotationCenter'), -1 * rotatedAngle );
         }
+        
         var unRotatedFeatureExtent = geometry.getExtent(),
             rotateHandlePointX = unRotatedFeatureExtent[0] + (unRotatedFeatureExtent[2] - unRotatedFeatureExtent[0]) / 2,
         selectPolygonCoordinates = [[
@@ -457,10 +543,11 @@ console.log("positionReferenceCoordinate", positionReferenceCoordinate, "updated
 
     this.displaySelectBoxForFeature = function() {
         var selectBoxFeature = this.createSelectBoxFeature_(this.shape_);
-        if(this.shape_.get('rotation') && this.shape_.get('rotationCenter')) {
-            this.rotateFeature_(selectBoxFeature, this.shape_.get('rotationCenter'), this.shape_.get('rotation'));
+        if(this.shape_.get('rotationCenter')) {
+            this.rotateFeature_(selectBoxFeature, this.shape_.get('rotationCenter'), this.getAccumulativeRotationForFeature_(this.shape_));
         }
-    	this.getSource().addFeature(selectBoxFeature);
+    	
+        this.getSource().addFeature(selectBoxFeature);
     }
 }
 goog.inherits(ol.layer.Manipulation, ol.layer.Vector);
