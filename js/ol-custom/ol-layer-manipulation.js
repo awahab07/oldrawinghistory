@@ -321,12 +321,13 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.resizeHandleDragged_ = function(map, handleFeature, fromPx, toPx) {
-        var unRotatedShapeGeometry = this.shape_.getGeometry().clone();
+        var unRotatedShapeGeometry = this.shapeOriginalGeometry_.clone();
         if(this.shape_.get('rotationCenter')) {
-            var rotatedAngle = goog.math.angleDifference( 360, this.shape_.get('rotationDegreesCurrentDrag') + this.shape_.get('rotationDegrees'));
-            unRotatedShapeGeometry = this.rotateGeometryAroundCoordinate_( unRotatedShapeGeometry, this.shape_.get('rotationCenter'), -1 * rotatedAngle );
+            unRotatedShapeGeometry = this.rotateGeometryAroundCoordinate_( unRotatedShapeGeometry, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotationDegrees') );
         }
         
+
+
         var shapeFeatureExtent = unRotatedShapeGeometry.getExtent(), //this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => TypeError: this.shapeOriginalGeometry_ is null
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
