@@ -90,6 +90,7 @@ ol.layer.Manipulation = function(opt_options) {
         }
 
         this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
+        this.dragFromPx_ = null;
     }
 
     this.shapeManipulated = function(shapeFeature) {
@@ -526,6 +527,9 @@ ol.layer.Manipulation = function(opt_options) {
     this.showOrHideBaseLayerManipulationHandles = function(mapBrowserEvent) {
         var baseLayer = this.manipulatableBaseLayer_;
         if(baseLayer) {
+            if(baseLayer.currentExtent_)
+                console.log(baseLayer.currentExtent_, mapBrowserEvent.coordinate, ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate));
+
             baseLayer.once("precompose", function(evt) {
                 var layerObj = evt.frameState.layerRef;
                 if(layerObj) {
@@ -551,7 +555,7 @@ ol.layer.Manipulation = function(opt_options) {
             }, this);
 
             baseLayer.once("postcompose", function(evt) {
-                baseLayer.currentExtent_ = evt.frameState.extent;
+                baseLayer.currentExtent_ = evt.frameState.viewState.projection.extent_;
             }, this);
 
             /*if(baseLayer.currentExtent_) {
