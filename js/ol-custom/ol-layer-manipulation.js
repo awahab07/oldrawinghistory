@@ -1,7 +1,7 @@
 /**
- * Layer responsible for displaying guide features to manipulate features
+ * Layer responsible for displaying guide features / grab handles to manipulate features
  * Features rendered for hints/guides/handles to manipulate features will have higher zIndex to be displayed on top
- * and will specific styles to distinguish them from other features
+ * and will have specific styles to distinguish them from other features
  *
  * Features drawn on this layer will have specific listeners representing manipulation behavior
  */
@@ -32,45 +32,11 @@ ol.layer.Manipulation = function(opt_options) {
     // Check if baseLayer is porvided to accomodate baseImage manipulation (Proportion Scale and Move only)
     this.manipulatableBaseLayer_ = opt_options.manipulatableBaseLayer;
 
-    // @TODO make the url dynamic via proper configuration
-    this.iconsBaseUrl_ = opt_options.iconsBaseUrl || "js/demo/widget/images/";
+    // Icons location for cursor or other ncecessary icons
+    this.iconsBaseUrl_ = opt_options.iconsBaseUrl || "img/";
 
-    this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 4;
-    this.rotateHandleStyle_ = opt_options.rotateHandleStyle || new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: this.rotateHandleSize_,
-            fill: new ol.style.Fill({
-                color: '#00ffff'
-            }),
-            stroke: new ol.style.Stroke({
-                color: '#000',
-                width: 2
-            })
-        })
-    });
-
-	this.resizeHandleSize_ = opt_options.scaleRectangleSize || 3;
-    this.handlesStyle_ = opt_options.resizeHandleStyle || new ol.style.Style({
-        image: new ol.style.Circle({
-            radius: this.resizeHandleSize_,
-            fill: new ol.style.Fill({
-                color: '#00f'
-            }),
-            stroke: new ol.style.Stroke({
-                color: '#fff',
-                width: 1
-            })
-        })
-	});
-
-	this.setStyle(new ol.style.Style({
-		fill: new ol.style.Fill({color: 'transparent'}),
-		stroke: new ol.style.Stroke({
-			color: '#0000FF',
-			width: 0.5,
-			lineDash: [4, 4]
-		})
-	}));
+    // Setting all layer and handle styles
+    this.setStyles_(opt_options);
 
 	this.setSource(new ol.source.Vector());
 	this.isManipulationLayer = true; // Indicator that this layer is used for manipulation
@@ -85,6 +51,7 @@ ol.layer.Manipulation = function(opt_options) {
     
     this.shape_ = null; // Reference to manipulating shape
     this.shapeOriginalGeometry_ = null; // To keep record of geometry of feature before manipulation
+    this.dragFromPx_ = null; // Tracking dragFromPx, updated differenctly for "move" than "rotate"/"resize"
 
     this.shapeSelectedForManipulation = function(shapeFeature) {
         this.shapeUnSelected();
@@ -115,13 +82,14 @@ ol.layer.Manipulation = function(opt_options) {
      */
     this.draggingDone = function(shapeOrHandleFeature) {
         var shapeFeature = goog.isDef(shapeOrHandleFeature.isHandleFeature) && shapeOrHandleFeature.isHandleFeature ? shapeOrHandleFeature.manipulatingFeature_ : shapeOrHandleFeature;
-        this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
 
         // Preserving accumulative rotation
         if(shapeOrHandleFeature.handleType && shapeOrHandleFeature.handleType == ol.ManipulationFeatureType.ROTATEHANDLE) {
             shapeFeature.set('rotationDegrees', this.getAccumulativeRotationForFeature_(shapeFeature));
             shapeFeature.set('rotationDegreesCurrentDrag', 0);
         }
+
+        this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
     }
 
     this.shapeManipulated = function(shapeFeature) {
@@ -132,6 +100,7 @@ ol.layer.Manipulation = function(opt_options) {
     this.shapeUnSelected = function() {
         this.shape_ = null;
         this.shapeOriginalGeometry_ = null;
+        this.dragFromPx_ = null;
 
         this.clearManipulationFeatures();
     }
@@ -249,73 +218,56 @@ ol.layer.Manipulation = function(opt_options) {
         
         feature.resizeHandleFeatures_ = [];
 
+        var handleCursorStylesByAngle = ["nesw-resize", "ew-resize", "nwse-resize", "ns-resize", "nesw-resize", "ew-resize", "nwse-resize", "ns-resize"],
+            cursorStyleIndex;
+        
         for( i=0; i < rotatedResizeHandleObjs.length; i++ ) {
             var handlePropertiesObject = rotatedResizeHandleObjs[i],
                 rotatedCoordinate = handlePropertiesObject.handleCoordinate,
-                resizeHandleAngle = goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]),
-                cursorStyle = "";
+                resizeHandleAngle = goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]);
 
+            if( i== 0) {
+                // Around 225 Degrees
+                if(resizeHandleAngle <= 247.5 && resizeHandleAngle > 202.4)
+                    cursorStyleIndex = 0;
 
-            // Around 225 Degrees
-            if(resizeHandleAngle <= 247.5 && resizeHandleAngle > 202.4)
-                cursorStyle = "nesw-resize";
+                // Around 180 Degrees
+                if(resizeHandleAngle <= 202.5 && resizeHandleAngle > 157.5)
+                    cursorStyleIndex = 1;
 
-            // Around 180 Degrees
-            if(resizeHandleAngle <= 202.5 && resizeHandleAngle > 157.5)
-                cursorStyle = "ew-resize";
+                // Around 135 Degrees
+                if(resizeHandleAngle <= 157.5 && resizeHandleAngle > 112.5)
+                    cursorStyleIndex = 2;
 
-            // Around 135 Degrees
-            if(resizeHandleAngle <= 157.5 && resizeHandleAngle > 112.5)
-                cursorStyle = "nwse-resize";
+                // Around 90 Degrees
+                if(resizeHandleAngle <= 112.5 && resizeHandleAngle > 67.5)
+                    cursorStyleIndex = 3;
 
-            // Around 90 Degrees
-            if(resizeHandleAngle <= 112.5 && resizeHandleAngle > 67.5)
-                cursorStyle = "ns-resize";
+                // Around 45 Degrees
+                if(resizeHandleAngle <= 67.5 && resizeHandleAngle > 22.5)
+                    cursorStyleIndex = 4;
 
-            // Around 45 Degrees
-            if(resizeHandleAngle <= 67.5 && resizeHandleAngle > 22.5)
-                cursorStyle = "nesw-resize";
+                // Around 0 Degrees
+                if( (resizeHandleAngle <= 22.5 && resizeHandleAngle > 0) || (resizeHandleAngle <= 360 && resizeHandleAngle > 337.5) )
+                    cursorStyleIndex = 5;
 
-            // Around 0 Degrees
-            if( (resizeHandleAngle <= 22.5 && resizeHandleAngle > 0) || (resizeHandleAngle <= 360 && resizeHandleAngle > 337.5) )
-                cursorStyle = "ew-resize";
+                // Around 315 Degrees
+                if(resizeHandleAngle <= 337.5 && resizeHandleAngle > 292.5)
+                    cursorStyleIndex = 6;
 
-            // Around 315 Degrees
-            if(resizeHandleAngle <= 337.5 && resizeHandleAngle > 292.5)
-                cursorStyle = "nwse-resize";
+                // Around 270 Degrees
+                if(resizeHandleAngle <= 292.5 && resizeHandleAngle > 247.5)
+                    cursorStyleIndex = 7;
+            } else {
+                cursorStyleIndex += 1;
+                if(cursorStyleIndex == 8) {
+                    cursorStyleIndex = 0;
+                }
+            }
 
-            // Around 270 Degrees
-            if(resizeHandleAngle <= 292.5 && resizeHandleAngle > 247.5)
-                cursorStyle = "ns-resize";
-
+            var cursorStyle = handleCursorStylesByAngle[cursorStyleIndex];
             feature.resizeHandleFeatures_.push(this.createResizeHandleForFeature_(feature, rotatedCoordinate, handlePropertiesObject.resizesX, handlePropertiesObject.resizesY, cursorStyle, handlePropertiesObject.positionRefCoord, handlePropertiesObject.signXChange, handlePropertiesObject.signYChange));
-        }       
-
-		/*feature.resizeHandleFeatures_ = [
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][0], true, true, "nesw-resize", [2, 3], 1, 1),
-
-			this.createResizeHandleForFeature_(feature, 
-				[ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ],
-				true, false, "ew-resize", [2, 3], 1, -1),
-
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][1], true, true, "nwse-resize", [2, 1], 1, -1),
-
-			this.createResizeHandleForFeature_(feature, 
-				[ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ],
-				false, true, "ns-resize", [0, 1], 1, -1),
-
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][5], true, true, "nesw-resize", [0, 1], -1, -1),
-
-			this.createResizeHandleForFeature_(feature, 
-				[ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ],
-				true, false, "ew-resize", [0, 1], -1, -1),
-
-			this.createResizeHandleForFeature_(feature, selectBoxCoordinates[0][6], true, true, "nwse-resize", [0, 3], -1, 1),
-
-			this.createResizeHandleForFeature_(feature, 
-				[ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ],
-				false, true, "ns-resize", [0, 3], 1, 1)
-		];*/
+        }
 		
 		this.handlesLayer.getSource().addFeatures(feature.resizeHandleFeatures_);
     }
@@ -325,30 +277,31 @@ ol.layer.Manipulation = function(opt_options) {
         if(this.shape_.get('rotationCenter')) {
             unRotatedShapeGeometry = this.rotateGeometryAroundCoordinate_( unRotatedShapeGeometry, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotationDegrees') );
         }
-        
-
 
         var shapeFeatureExtent = unRotatedShapeGeometry.getExtent(), //this.shapeOriginalGeometry_.getExtent(), // @TODO: check error => TypeError: this.shapeOriginalGeometry_ is null
             shapeFeatureWidth = shapeFeatureExtent[2] - shapeFeatureExtent[0],
             shapeFeatureHeight = shapeFeatureExtent[3] - shapeFeatureExtent[1],
             fromCoordinate = map.getCoordinateFromPixel(fromPx),
             toCoordinate = map.getCoordinateFromPixel(toPx),
-            dragXDistance = handleFeature.signXChange_ * (toCoordinate[0] - fromCoordinate[0]),
+            positionReferenceCoordinate = handleFeature.referenceExtentCoordinate_;
+            
+            // If shape is rotated, un rotate the reference coordinates
+            if(this.shape_.get('rotationDegrees') && this.shape_.get('rotationCenter')) {
+                var unrotatedRefCoords = this.rotateCoordinatesArrayAroundCoordinate_([fromCoordinate, toCoordinate, positionReferenceCoordinate], this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotationDegrees'));
+                fromCoordinate = unrotatedRefCoords[0];
+                toCoordinate = unrotatedRefCoords[1];
+                positionReferenceCoordinate = unrotatedRefCoords[2];
+            }
+            
+        var dragXDistance = handleFeature.signXChange_ * (toCoordinate[0] - fromCoordinate[0]),
             dragYDistance = handleFeature.signYChange_ * (toCoordinate[1] - fromCoordinate[1]),
             scaleX = handleFeature.resizesX_ ? (1 - dragXDistance / shapeFeatureWidth): 1,
             scaleY = handleFeature.resizesY_ ? (1 - dragYDistance / shapeFeatureHeight): 1,
-            positionReferenceCoordinate = handleFeature.referenceExtentCoordinate_, //[ (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[0]]), (shapeFeatureExtent[handleFeature.referenceExtentCoordinate_[1]]) ],
             updatedPositionReferenceCoordinate = [(positionReferenceCoordinate[0] * scaleX), (positionReferenceCoordinate[1] * scaleY)],
             displacementX = positionReferenceCoordinate[0] - updatedPositionReferenceCoordinate[0],
             displacementY = positionReferenceCoordinate[1] - updatedPositionReferenceCoordinate[1];
-console.log("shapeFeatureWidth", shapeFeatureWidth, "shapeFeatureHeight", shapeFeatureHeight);
 
-        var shapeCoordinates = this.grabCoordinatesArrayFromGeometry_(this.shapeOriginalGeometry_.clone());
-        
-        // Un Rotating coordinates if shape is rotated
-        if(this.shape_.get('rotationDegrees') && this.shape_.get('rotationCenter')) {
-            shapeCoordinates = this.rotateCoordinatesArrayAroundCoordinate_(shapeCoordinates, this.shape_.get('rotationCenter'), -1 * this.shape_.get('rotationDegrees'));
-        }
+        var shapeCoordinates = this.grabCoordinatesArrayFromGeometry_(unRotatedShapeGeometry);
         
         // Scaling/Resizing coordinates
         shapeCoordinates = shapeCoordinates.map(function(coordinate) {
@@ -366,22 +319,38 @@ console.log("shapeFeatureWidth", shapeFeatureWidth, "shapeFeatureHeight", shapeF
         this.shape_.getGeometry().setCoordinates(shapeCoordinates);
     }
 
-    this.handleDragged = function(map, handleFeature, fromPx, toPx) {
-    	if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
-    		this.resizeHandleDragged_(map, handleFeature, fromPx, toPx);
-    	}
+    this.featureDragged = function(map, handleOrShapeFeature, fromPx, toPx) {
+        if(!this.dragFromPx_) {
+            this.dragFromPx_ = fromPx;
+        }
 
-        if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
-            this.rotateHandleDragged_(map, handleFeature, fromPx, toPx);
+        // Determining what type of feature is dragged
+        if(goog.isDef(handleOrShapeFeature.isHandleFeature) && handleOrShapeFeature.isHandleFeature) {
+            this.handleDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
+        } else {
+            this.shapeDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
+
+            // For incremental dragging
+            this.dragFromPx_ = toPx;
         }
 
         this.shapeManipulated();
     }
 
-    this.shapeDragged = function(map, handleFeature, fromPx, toPx) {
-        this.translateFeature_(map, handleFeature, fromPx, toPx);
+    this.handleDragged_ = function(map, handleFeature, fromPx, toPx) {
+    	if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
+    		this.resizeHandleDragged_(map, handleFeature, this.dragFromPx_, toPx);
+    	}
 
-        this.shapeManipulated();
+        if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
+            this.rotateHandleDragged_(map, handleFeature, this.dragFromPx_, toPx);
+        }
+
+        
+    }
+
+    this.shapeDragged_ = function(map, handleFeature, fromPx, toPx) {        
+        this.translateFeature_(map, handleFeature, this.dragFromPx_, toPx);
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
@@ -607,3 +576,46 @@ console.log("shapeFeatureWidth", shapeFeatureWidth, "shapeFeatureHeight", shapeF
     }
 }
 goog.inherits(ol.layer.Manipulation, ol.layer.Vector);
+
+/**
+ * Setting handles and manipulation layer styles
+ * @param {JSON Object} opt_options Optionally styles can be provided while instantiating the interaction
+ */
+ol.layer.Manipulation.prototype.setStyles_ = function(opt_options) {
+    this.rotateHandleSize_ = opt_options.rotateHandleSize_ || 4;
+    this.rotateHandleStyle_ = opt_options.rotateHandleStyle || new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: this.rotateHandleSize_,
+            fill: new ol.style.Fill({
+                color: '#00ffff'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#000',
+                width: 2
+            })
+        })
+    });
+
+    this.resizeHandleSize_ = opt_options.scaleRectangleSize || 3;
+    this.handlesStyle_ = opt_options.resizeHandleStyle || new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: this.resizeHandleSize_,
+            fill: new ol.style.Fill({
+                color: '#00f'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#fff',
+                width: 1
+            })
+        })
+    });
+
+    this.setStyle(new ol.style.Style({
+        fill: new ol.style.Fill({color: 'transparent'}),
+        stroke: new ol.style.Stroke({
+            color: '#0000FF',
+            width: 0.5,
+            lineDash: [4, 4]
+        })
+    }));
+}

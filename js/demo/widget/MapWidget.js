@@ -518,6 +518,7 @@ define([
 
             // Manipulate Interaction, taking account baseImage manipulation
             this.manipulateInteraction = new ol.interaction.Manipulate({
+                iconsBaseUrl: "js/demo/widget/images/",
                 manipulatableBaseLayer: this.baseImageLayer,
                 layerToManipulateOn: this.activeLayer
                 /*features: this.selectInteraction.getFeatures(),

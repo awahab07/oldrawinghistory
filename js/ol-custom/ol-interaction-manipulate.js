@@ -169,11 +169,17 @@ ol.interaction.Manipulate = function(opt_options) {
 
     // Manipulation variables
     this.manipulationLayer_ = new ol.layer.Manipulation({
+    	iconsBaseUrl: opt_options.iconsBaseUrl,
     	manipulatableBaseLayer: this.manipulatableBaseLayer_
     });
+    
+    // Defining filter to detect event on selected layers
+    // Include the drawing layer if this.layerToManipulateOn_ is configured to a lyer
+    // Also inlude the manipulation layer
     this.layerFilter_ = function(layer) {
     	var isSelectedLayerOnly = this.layerToManipulateOn_ ? this.layerToManipulateOn_ == layer : true;
-    		isSelectedLayerOnly = isSelectedLayerOnly || (goog.isDef(layer.isHandlesLayer) && layer.isHandlesLayer);
+    	isSelectedLayerOnly = isSelectedLayerOnly || (goog.isDef(layer.isHandlesLayer) && layer.isHandlesLayer);
+    	
     	return !(goog.isDef(layer.isManipulationLayer) && layer.isManipulationLayer) && isSelectedLayerOnly;
     }
     
@@ -203,6 +209,8 @@ ol.interaction.Manipulate = function(opt_options) {
             features));
     }
 
+    // Determines if feature is valid to be selected for manipulation
+    // Prevents manipulation of gab handles
     this.isCandidateFeature_ = function(feature) {
     	if(goog.isDef(feature) && goog.isDef(feature.isDrawingFeature) && feature.isDrawingFeature) {
     		return false;
@@ -274,54 +282,29 @@ ol.interaction.Manipulate = function(opt_options) {
 	 * Checks if Browser Event handled by the Select Functionality of features
 	 */
 	this.handleMapBrowserEventForSelect_ = function(mapBrowserEvent) {
-		// Handle PointerDrag and PointerUp Events for Movement if this.draggingFeature_ is not null
+		// Handle PointerDrag and PointerUp Events for Movement of Shapes or grab Handle features if this.draggingFeature_ is not null
 		if(!goog.isNull(this.draggingFeature_) && !goog.isNull(this.dragFromPx_)) {
+
+			// If a feature is dragged, ask to manipulation layer to modify accordingly
             if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
+				this.manipulationLayer_.featureDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
 
-                // If dragged feature is a handler feature, delegate to manipulation layer
-                if(goog.isDef(this.draggingFeature_.isHandleFeature) && this.draggingFeature_.isHandleFeature) {
-                	this.manipulationLayer_.handleDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
-                } else {
-                	this.manipulationLayer_.shapeDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
-
-                	// resetting dragFromPx_ for incremental translation, as opposed in case of rotation/resize
-                	this.dragFromPx_ = mapBrowserEvent.pixel;
-                }
-
+				// updating dragFromPx
+                this.dragFromPx_ = mapBrowserEvent.pixel;
             }
 
+            // If pointer is up after feature was selected, ask manipulation layer that dragging is finished
             if(mapBrowserEvent.type == ol.MapBrowserEvent.EventType.POINTERUP) {
             	this.manipulationLayer_.draggingDone(this.draggingFeature_);
                 this.dragFromPx_ = null;
             }
-            
-            //return false;
         }
 
 		var selectFeatures = this.featureOverlayForSelect_.getFeatures();
 
 		// Check whether pointer is over a feature
 		if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERMOVE) {
-			// Detecting shape and handle features
-			var manipulateInteraction = this;
-			var shapeOrHandleFeature = this.map_.forEachFeatureAtPixel(
-				mapBrowserEvent.pixel,
-			    function(shapeOrHandleFeature, layer) {
-			      return shapeOrHandleFeature;
-			    }, 
-			    undefined, 
-			    function(layer) {
-			    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlerLayer);
-			    });
-
-			if(goog.isDef(shapeOrHandleFeature) && this.isCandidateFeature_(shapeOrHandleFeature)) {
-				if(goog.isDefAndNotNull(shapeOrHandleFeature.isHandleFeature))
-					this.changeCursorTo_(shapeOrHandleFeature.cursorStyle);
-				else
-					this.changeCursorTo_("move");
-			} else {
-				this.changeCursorToDefault_();
-			}
+			this.updateMapCursorStyle_(mapBrowserEvent);
 		}
 
 		if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDOWN) {
@@ -368,6 +351,43 @@ ol.interaction.Manipulate = function(opt_options) {
 		return true;
 	};
 
+	/**
+	 * Changes the cursor style of map viewport
+	 * Detects handle features on filtered layers on manipulateInteraction as well as handlesLayer also confirms from this.isCandidateFeature_
+	 * If detected feature is handle feature, queries the cursorStyle property of handle
+	 * If detected feature is not a handle feature (Shape feature), applied the "move" cursor style
+	 * 
+	 * @param  {ol.MapBrowserEvent} mapBrowserEvent Current state of Pointer event
+	 * @return {undefined}
+	 */
+	this.updateMapCursorStyle_ = function(mapBrowserEvent) {
+		// Detecting shape and handle features
+		var manipulateInteraction = this;
+		var shapeOrHandleFeature = this.map_.forEachFeatureAtPixel(
+			mapBrowserEvent.pixel,
+		    function(shapeOrHandleFeature, layer) {
+		      return shapeOrHandleFeature;
+		    }, 
+		    undefined, 
+		    function(layer) {
+		    	return manipulateInteraction.layerFilter_(layer) || goog.isDefAndNotNull(layer.isHandlerLayer);
+		    });
+
+		if(goog.isDef(shapeOrHandleFeature) && this.isCandidateFeature_(shapeOrHandleFeature)) {
+			if(goog.isDefAndNotNull(shapeOrHandleFeature.isHandleFeature))
+				this.changeCursorTo_(shapeOrHandleFeature.cursorStyle);
+			else
+				this.changeCursorTo_("move");
+		} else {
+			this.changeCursorToDefault_();
+		}		
+	}
+
+	/**
+	 * Determine is event type is suitable to detect Select Event
+	 * @param  {ol.MapBrowserEvent} mapBrowserEvent Current state of Pointer Event
+	 * @return {bool} Whether or not the event should be routed to select functionality
+	 */
 	this.shouldRouteToSelect_ = function(mapBrowserEvent) {
 		if(!this.isInSelectMode_)
 			return false;
@@ -388,6 +408,7 @@ ol.interaction.Manipulate = function(opt_options) {
 	this.handleMapBrowserEvent = function(mapBrowserEvent) {
 	  var handled = false;
 	  if(this.shouldRouteToSelect_(mapBrowserEvent)) {
+	  	
 	  	// Also if a manipulatable baseLayer is provided, pass the event to Manipulation Layer to allow it to check if
 	  	// there's any need to show baseLayer manipulation handles based on the current pointer position
 	  	if( goog.isDefAndNotNull(this.manipulatableBaseLayer_) ) {
@@ -496,29 +517,35 @@ ol.interaction.Manipulate = function(opt_options) {
     }
 
     this.featureSelected_ = function(feature) {
+    	// Adding manipulation layer to map if not added
     	if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_)) {
         	this.getMap().addLayer(this.manipulationLayer_);
         }
 
-        // Adding handles layer if not added
+        // Adding handles layer to map if not added
         if(!goog.array.contains(this.map_.getLayers().getArray(), this.manipulationLayer_.handlesLayer)) {
         	this.map_.addLayer(this.manipulationLayer_.handlesLayer);
         }
 
+        // Informing manipulation layer that shape is selected and manipulation is going to start
         if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
         	this.manipulationLayer_.shapeSelectedForManipulation(feature);
         }
         
+        // Reference to which feature is going to be dragged for manipulation
         this.draggingFeature_ = feature;
         
+        // For manipulation events
         var eventFeatureCollection = new ol.Collection();
         eventFeatureCollection.push(feature);
         
-        this.manipulatingFeature_ = null; // To be populated when edited
+        this.manipulatingFeature_ = null; // To be populated when edited, probably by manipulation layer
     }
 
     this.featureUnSelected_ = function(feature) {console.log("feature unselected");
     	this.draggingFeature_ = null;
+
+    	// Informing manipulation layer that feature is unselected
     	this.manipulationLayer_.shapeUnSelected(feature);
     }
 
