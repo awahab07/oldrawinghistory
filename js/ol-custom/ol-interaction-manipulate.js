@@ -529,7 +529,7 @@ ol.interaction.Manipulate = function(opt_options) {
 
         // Informing manipulation layer that shape is selected and manipulation is going to start
         if(!(goog.isDef(feature.isHandleFeature) && feature.isHandleFeature)) {
-        	this.manipulationLayer_.shapeSelectedForManipulation(feature);
+        	this.manipulationLayer_.shapeSelectedForManipulation(this.getMap(), feature);
         }
         
         // Reference to which feature is going to be dragged for manipulation

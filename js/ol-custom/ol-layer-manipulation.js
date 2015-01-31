@@ -49,11 +49,15 @@ ol.layer.Manipulation = function(opt_options) {
 	
 	this.handlesLayer.isHandlesLayer = true; // Indicator that this layer is used to display manipulation handles
     
+    this.map_ = null; // Reference to the last used map
+    this.mapViewResolutionListenerKey_ = null; // Handle to ol.View:change:resolution listener, Needed to redraw modification handlers updon resolution change
     this.shape_ = null; // Reference to manipulating shape
     this.shapeOriginalGeometry_ = null; // To keep record of geometry of feature before manipulation
     this.dragFromPx_ = null; // Tracking dragFromPx, updated differenctly for "move" than "rotate"/"resize"
 
-    this.shapeSelectedForManipulation = function(shapeFeature) {
+    this.shapeSelectedForManipulation = function(map, shapeFeature) {
+        this.map_ = map;
+
         this.shapeUnSelected();
         
         if(goog.isNull(shapeFeature))
@@ -74,6 +78,9 @@ ol.layer.Manipulation = function(opt_options) {
         this.displaySelectBoxForFeature();
         this.displayResizeHandlesForFeature();
         this.displayRotateHandleForFeature();
+
+        // Observing view:resolution and refreshing modification handlers on change
+        this.observeViewResolution_(this.map_.getView());
     }
 
     /**
@@ -104,6 +111,10 @@ ol.layer.Manipulation = function(opt_options) {
         this.dragFromPx_ = null;
 
         this.clearManipulationFeatures();
+
+        if(this.map_) {
+            this.observeViewResolution_(this.map_.getView()); // Removing the view change:resolution listener
+        }
     }
 
     this.displayManipulationFeatures = function() {
@@ -115,6 +126,18 @@ ol.layer.Manipulation = function(opt_options) {
     this.clearManipulationFeatures = function() {
         this.getSource().clear();
         this.handlesLayer.getSource().clear();
+    }
+
+    this.observeViewResolution_ = function(view) {
+        if(this.mapViewResolutionListenerKey_)
+            view.unByKey(this.mapViewResolutionListenerKey_);
+
+        if(this.shape_) {
+            this.mapViewResolutionListenerKey_ = view.on("change:resolution", function(evt) {
+                this.clearManipulationFeatures();
+                this.displayManipulationFeatures();
+            }, this);
+        }
     }
 
     this.createRotateHandleForFeature_ = function(feature, cursorImageUrl) {
@@ -321,6 +344,8 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.featureDragged = function(map, handleOrShapeFeature, fromPx, toPx) {
+        this.mapResolution_ = map.getView().getResolution();
+
         if(!this.dragFromPx_) {
             this.dragFromPx_ = fromPx;
         }
@@ -346,8 +371,6 @@ ol.layer.Manipulation = function(opt_options) {
         if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
             this.rotateHandleDragged_(map, handleFeature, this.dragFromPx_, toPx);
         }
-
-        
     }
 
     this.shapeDragged_ = function(map, handleFeature, fromPx, toPx) {        
@@ -436,7 +459,7 @@ ol.layer.Manipulation = function(opt_options) {
 
     /**
      * This is needed because Point, LineString and Polygons have different array structure of coordinates
-     * So when assigned manipulated array of coordinates, the must be transformed into proper structure
+     * So when assigned manipulated array of coordinates, they must be transformed into proper structure
      * @param  {ol.geom.Geometry} geometry the geometry to determine the array structure
      * @param {Array<ol.Coordinate>} coordinates The coordintes to wrap to
      * @return {Array}          array of ol.Coordinate of appropriate dimensions
@@ -475,7 +498,7 @@ ol.layer.Manipulation = function(opt_options) {
             [ unRotatedFeatureExtent[0], unRotatedFeatureExtent[1] ],
             [ unRotatedFeatureExtent[0], unRotatedFeatureExtent[3] ],
             [ rotateHandlePointX, unRotatedFeatureExtent[3] ], // Rotate Hook
-            [ rotateHandlePointX, unRotatedFeatureExtent[3] + 30 ], // Rotate Hook Handle
+            [ rotateHandlePointX, unRotatedFeatureExtent[3] + 30 * this.map_.getView().getResolution() ], // Rotate Hook Handle
             [ rotateHandlePointX, unRotatedFeatureExtent[3] ], // Rotate Hook
             [ unRotatedFeatureExtent[2], unRotatedFeatureExtent[3] ],
             [ unRotatedFeatureExtent[2], unRotatedFeatureExtent[1] ]
@@ -525,12 +548,43 @@ ol.layer.Manipulation = function(opt_options) {
     }
 
     this.showOrHideBaseLayerManipulationHandles = function(mapBrowserEvent) {
-        var baseLayer = this.manipulatableBaseLayer_;
+        var self = this,
+            baseLayer = this.manipulatableBaseLayer_;
         if(baseLayer) {
-            if(baseLayer.currentExtent_)
-                console.log(baseLayer.currentExtent_, mapBrowserEvent.coordinate, ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate));
+            
+            if(baseLayer.currentExtent_) {
+                //console.log(baseLayer.currentExtent_, mapBrowserEvent.coordinate, ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate));
+                // If pointer is on base image
+                if( ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate) ) {
 
-            baseLayer.once("precompose", function(evt) {
+                    if(true || !this.resizeHandledrawn) {
+                        var baseImageResizePolygonCoords = [[
+                            /*ol.extent.getBottomRight(baseLayer.currentExtent_),
+                            [ol.extent.getBottomRight(baseLayer.currentExtent_)[0] - 10, ol.extent.getBottomRight(baseLayer.currentExtent_)[1]],
+                            [ol.extent.getBottomRight(baseLayer.currentExtent_)[0], ol.extent.getBottomRight(baseLayer.currentExtent_)[1] + 10],
+                            ol.extent.getBottomRight(baseLayer.currentExtent_)*/
+                            [50, 50], [100, 100], [200, 50], [50, 50]
+                        ]];
+
+                        var baseLayerResizeHandleFeature = new ol.Feature({
+                            geometry: new ol.geom.Polygon(baseImageResizePolygonCoords)
+                        });
+
+                        baseLayerResizeHandleFeature.setStyle(new ol.style.Style({
+                            fill: new ol.style.Fill({
+                                color: "rgba(220, 150, 20, 0.8)"
+                            })
+                        }));
+
+                        var addedFeature = self.getSource().addFeature(baseLayerResizeHandleFeature);
+                        this.resizeHandledrawn = true;
+                        console.log("resizeHandledrawn", baseImageResizePolygonCoords, "addedFeature", addedFeature);
+                    }
+                }
+                
+            }
+
+            /*baseLayer.once("precompose", function(evt) {
                 var layerObj = evt.frameState.layerRef;
                 if(layerObj) {
                     layerObj.modifyImageTransform = function(imageTransform) {
@@ -552,8 +606,9 @@ ol.layer.Manipulation = function(opt_options) {
                         return imageTransform;
                     }
                 }
-            }, this);
-
+            }, this);*/
+            
+            // Keep updating the extent
             baseLayer.once("postcompose", function(evt) {
                 baseLayer.currentExtent_ = evt.frameState.viewState.projection.extent_;
             }, this);
