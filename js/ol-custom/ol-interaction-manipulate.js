@@ -412,7 +412,7 @@ ol.interaction.Manipulate = function(opt_options) {
 	  	// Also if a manipulatable baseLayer is provided, pass the event to Manipulation Layer to allow it to check if
 	  	// there's any need to show baseLayer manipulation handles based on the current pointer position
 	  	if( goog.isDefAndNotNull(this.manipulatableBaseLayer_) ) {
-	  		this.manipulationLayer_.showOrHideBaseLayerManipulationHandles(mapBrowserEvent);
+	  		this.manipulationLayer_.showOrHideBaseLayerManipulationHandles(this.getMap(), mapBrowserEvent);
 	  	}
 
 	  	handled = this.handleMapBrowserEventForSelect_(mapBrowserEvent);

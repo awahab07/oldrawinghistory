@@ -20,7 +20,8 @@ goog.require('goog.math');
 ol.ManipulationFeatureType = {
 	RESIZEBOX: "ResizeBox",
 	RESIZEHANDLE: "ResizeHandle",
-    ROTATEHANDLE: "RotateHandle"
+    ROTATEHANDLE: "RotateHandle",
+    BASEIMAGERESIZEHANDLE: "BaseImageResizeHandle"
 }
 
 ol.layer.Manipulation = function(opt_options) {
@@ -90,13 +91,16 @@ ol.layer.Manipulation = function(opt_options) {
     this.draggingDone = function(shapeOrHandleFeature) {
         var shapeFeature = goog.isDef(shapeOrHandleFeature.isHandleFeature) && shapeOrHandleFeature.isHandleFeature ? shapeOrHandleFeature.manipulatingFeature_ : shapeOrHandleFeature;
 
-        // Preserving accumulative rotation
-        if(shapeOrHandleFeature.handleType && shapeOrHandleFeature.handleType == ol.ManipulationFeatureType.ROTATEHANDLE) {
-            shapeFeature.set('rotationDegrees', this.getAccumulativeRotationForFeature_(shapeFeature));
-            shapeFeature.set('rotationDegreesCurrentDrag', 0);
+        if(shapeFeature) {
+            // Preserving accumulative rotation
+            if(shapeOrHandleFeature.handleType && shapeOrHandleFeature.handleType == ol.ManipulationFeatureType.ROTATEHANDLE) {
+                shapeFeature.set('rotationDegrees', this.getAccumulativeRotationForFeature_(shapeFeature));
+                shapeFeature.set('rotationDegreesCurrentDrag', 0);
+            }
+
+            this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
         }
 
-        this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
         this.dragFromPx_ = null;
     }
 
@@ -352,24 +356,28 @@ ol.layer.Manipulation = function(opt_options) {
 
         // Determining what type of feature is dragged
         if(goog.isDef(handleOrShapeFeature.isHandleFeature) && handleOrShapeFeature.isHandleFeature) {
-            this.handleDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
+            if( goog.isDef(handleOrShapeFeature.handleType) ) {
+                
+                if(handleOrShapeFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
+                    this.resizeHandleDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
+                    this.shapeManipulated();
+                }
+
+                if( handleOrShapeFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
+                    this.rotateHandleDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
+                    this.shapeManipulated();
+                }
+
+                if( handleOrShapeFeature.handleType === ol.ManipulationFeatureType.BASEIMAGERESIZEHANDLE ) {
+                    console.log(this.dragFromPx_, toPx);
+                }
+            }
         } else {
             this.shapeDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
 
             // For incremental dragging
             this.dragFromPx_ = toPx;
-        }
-
-        this.shapeManipulated();
-    }
-
-    this.handleDragged_ = function(map, handleFeature, fromPx, toPx) {
-    	if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.RESIZEHANDLE ) {
-    		this.resizeHandleDragged_(map, handleFeature, this.dragFromPx_, toPx);
-    	}
-
-        if( goog.isDef(handleFeature.handleType) && handleFeature.handleType === ol.ManipulationFeatureType.ROTATEHANDLE ) {
-            this.rotateHandleDragged_(map, handleFeature, this.dragFromPx_, toPx);
+            this.shapeManipulated();
         }
     }
 
@@ -547,41 +555,56 @@ ol.layer.Manipulation = function(opt_options) {
         this.getSource().addFeature(selectBoxFeature);
     }
 
-    this.showOrHideBaseLayerManipulationHandles = function(mapBrowserEvent) {
+    this.showOrHideBaseLayerManipulationHandles = function(map, mapBrowserEvent) {
         var self = this,
             baseLayer = this.manipulatableBaseLayer_;
+
         if(baseLayer) {
+            // Adding overlay for baseLayerManipulation resize handles
+            if( !baseLayer.resizeHandlesOverlay ) {
+                baseLayer.resizeHandlesOverlay = new ol.FeatureOverlay({
+                    style: new ol.style.Style({
+                        fill: new ol.style.Fill({
+                            color: "white"
+                        }),
+                        stroke: new ol.style.Stroke({
+                            color: "black",
+                            width: 1
+                        })
+                    })
+                });
+
+                baseLayer.resizeHandlesOverlay.setMap(map);
+
+                // resize handles size
+                baseLayer.resizeHandlesSize = 10;
+
+                // BaseLayer BottomRight resize handle
+                baseLayer.bottomRightResizeHandle = new ol.Feature({geometry: new ol.geom.Polygon( [[]] )});
+                baseLayer.bottomRightResizeHandle.isHandleFeature = true;  // Indication that feature is a manipulation handle
+                baseLayer.bottomRightResizeHandle.handleType = ol.ManipulationFeatureType.BASEIMAGERESIZEHANDLE;
+                baseLayer.bottomRightResizeHandle.cursorStyle = "nwse-resize";
+            }
+
             
-            if(baseLayer.currentExtent_) {
-                //console.log(baseLayer.currentExtent_, mapBrowserEvent.coordinate, ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate));
+            if( baseLayer.currentExtent_ && baseLayer.resizeHandlesOverlay ) {
+                // Updating resize handle geometries
+                var x0 = baseLayer.currentExtent_[0],
+                    y0 = baseLayer.currentExtent_[1],
+                    x1 = baseLayer.currentExtent_[2],
+                    y1 = baseLayer.currentExtent_[3],
+                    size = baseLayer.resizeHandlesSize;
+                
+                baseLayer.bottomRightResizeHandle.getGeometry().setCoordinates([[
+                    [x1, y0], [x1 - size, y0], [x1, y0 + size], [x1, y0]
+                ]]);
+
                 // If pointer is on base image
                 if( ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate) ) {
-
-                    if(true || !this.resizeHandledrawn) {
-                        var baseImageResizePolygonCoords = [[
-                            /*ol.extent.getBottomRight(baseLayer.currentExtent_),
-                            [ol.extent.getBottomRight(baseLayer.currentExtent_)[0] - 10, ol.extent.getBottomRight(baseLayer.currentExtent_)[1]],
-                            [ol.extent.getBottomRight(baseLayer.currentExtent_)[0], ol.extent.getBottomRight(baseLayer.currentExtent_)[1] + 10],
-                            ol.extent.getBottomRight(baseLayer.currentExtent_)*/
-                            [50, 50], [100, 100], [200, 50], [50, 50]
-                        ]];
-
-                        var baseLayerResizeHandleFeature = new ol.Feature({
-                            geometry: new ol.geom.Polygon(baseImageResizePolygonCoords)
-                        });
-
-                        baseLayerResizeHandleFeature.setStyle(new ol.style.Style({
-                            fill: new ol.style.Fill({
-                                color: "rgba(220, 150, 20, 0.8)"
-                            })
-                        }));
-
-                        var addedFeature = self.getSource().addFeature(baseLayerResizeHandleFeature);
-                        this.resizeHandledrawn = true;
-                        console.log("resizeHandledrawn", baseImageResizePolygonCoords, "addedFeature", addedFeature);
-                    }
+                    baseLayer.resizeHandlesOverlay.addFeature(baseLayer.bottomRightResizeHandle);
+                } else {
+                    baseLayer.resizeHandlesOverlay.removeFeature(baseLayer.bottomRightResizeHandle);
                 }
-                
             }
 
             /*baseLayer.once("precompose", function(evt) {
