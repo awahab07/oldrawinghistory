@@ -287,7 +287,7 @@ ol.interaction.Manipulate = function(opt_options) {
 
 			// If a feature is dragged, ask to manipulation layer to modify accordingly
             if(mapBrowserEvent.type === ol.MapBrowserEvent.EventType.POINTERDRAG ) {
-				this.manipulationLayer_.featureDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel);
+				this.manipulationLayer_.featureDragged(this.map_, this.draggingFeature_, this.dragFromPx_, mapBrowserEvent.pixel, mapBrowserEvent);
 
 				// updating dragFromPx
                 this.dragFromPx_ = mapBrowserEvent.pixel;

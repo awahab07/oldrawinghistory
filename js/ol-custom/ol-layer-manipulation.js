@@ -101,6 +101,10 @@ ol.layer.Manipulation = function(opt_options) {
             this.shapeOriginalGeometry_ = shapeFeature.getGeometry().clone();
         }
 
+        if(this.manipulatableBaseLayer_) {
+            this.manipulatableBaseLayer_.originalExtentInPixels = null;
+        }
+
         this.dragFromPx_ = null;
     }
 
@@ -347,7 +351,7 @@ ol.layer.Manipulation = function(opt_options) {
         this.shape_.getGeometry().setCoordinates(shapeCoordinates);
     }
 
-    this.featureDragged = function(map, handleOrShapeFeature, fromPx, toPx) {
+    this.featureDragged = function(map, handleOrShapeFeature, fromPx, toPx, mapBrowserEvent) {
         this.mapResolution_ = map.getView().getResolution();
 
         if(!this.dragFromPx_) {
@@ -369,7 +373,7 @@ ol.layer.Manipulation = function(opt_options) {
                 }
 
                 if( handleOrShapeFeature.handleType === ol.ManipulationFeatureType.BASEIMAGERESIZEHANDLE ) {
-                    console.log(this.dragFromPx_, toPx);
+                    this.baseLayerResizeHandleDragged_(map, handleOrShapeFeature, this.dragFromPx_, toPx);
                 }
             }
         } else {
@@ -383,6 +387,29 @@ ol.layer.Manipulation = function(opt_options) {
 
     this.shapeDragged_ = function(map, handleFeature, fromPx, toPx) {        
         this.translateFeature_(map, handleFeature, this.dragFromPx_, toPx);
+    }
+
+    this.baseLayerResizeHandleDragged_ = function(map, handleOrShapeFeature, fromPx, toPx) {
+        var handle = handleOrShapeFeature,
+            baseLayer = handle.baseLayer;
+        
+        if( !baseLayer.originalExtentInPixels ) {
+            var bottomLeft = map.getPixelFromCoordinate(ol.extent.getBottomLeft(baseLayer.currentExtent_)),
+                topRight = map.getPixelFromCoordinate(ol.extent.getTopRight(baseLayer.currentExtent_));
+            
+            baseLayer.originalExtentInPixels = [bottomLeft[0], bottomLeft[1], topRight[0], topRight[1]];
+        }
+
+        var extent = baseLayer.originalExtentInPixels,
+            handleExtentCoordinate = [ extent[handle.extentCoordinateIndex[0]], extent[handle.extentCoordinateIndex[1]] ],
+            referenceExtentCoordinate = [ extent[handle.referenceExtentCoordinateIndex[0]], extent[handle.referenceExtentCoordinateIndex[1]] ],
+            diagonalExtentDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentCoordinate, handleExtentCoordinate) ),
+            draggedDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentCoordinate, toPx) ),
+            documentResolutionFactor = draggedDistance / diagonalExtentDistance;
+
+            console.log(draggedDistance.toFixed(2), diagonalExtentDistance.toFixed(2), documentResolutionFactor);
+
+            map.getView().setResolution(map.getView().getResolution() / documentResolutionFactor.toFixed(2));
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
@@ -584,6 +611,9 @@ ol.layer.Manipulation = function(opt_options) {
                 baseLayer.bottomRightResizeHandle.isHandleFeature = true;  // Indication that feature is a manipulation handle
                 baseLayer.bottomRightResizeHandle.handleType = ol.ManipulationFeatureType.BASEIMAGERESIZEHANDLE;
                 baseLayer.bottomRightResizeHandle.cursorStyle = "nwse-resize";
+                baseLayer.bottomRightResizeHandle.baseLayer = baseLayer;
+                baseLayer.bottomRightResizeHandle.extentCoordinateIndex = [2, 1];
+                baseLayer.bottomRightResizeHandle.referenceExtentCoordinateIndex = [0, 3];
             }
 
             
@@ -601,59 +631,20 @@ ol.layer.Manipulation = function(opt_options) {
 
                 // If pointer is on base image
                 if( ol.extent.containsCoordinate(baseLayer.currentExtent_, mapBrowserEvent.coordinate) ) {
-                    baseLayer.resizeHandlesOverlay.addFeature(baseLayer.bottomRightResizeHandle);
+                    if(!goog.array.contains(baseLayer.resizeHandlesOverlay.getFeatures().getArray(), baseLayer.bottomRightResizeHandle)) {
+                        baseLayer.resizeHandlesOverlay.addFeature(baseLayer.bottomRightResizeHandle);
+                    }
                 } else {
-                    baseLayer.resizeHandlesOverlay.removeFeature(baseLayer.bottomRightResizeHandle);
-                }
-            }
-
-            /*baseLayer.once("precompose", function(evt) {
-                var layerObj = evt.frameState.layerRef;
-                if(layerObj) {
-                    layerObj.modifyImageTransform = function(imageTransform) {
-                        
-                        if(!baseLayer.transformFactor)
-                            baseLayer.transformFactor = 1;
-                        
-
-                        if(baseLayer.transformFactor >= 0.5) {
-                            imageTransform[0] *= baseLayer.transformFactor;
-                            imageTransform[5] *= baseLayer.transformFactor;
-                        } else {
-                            imageTransform[0] *= 0.5;
-                            imageTransform[5] *= 0.5;
-                        }
-
-                        baseLayer.transformFactor -= 0.005;
-
-                        return imageTransform;
+                    if(goog.array.contains(baseLayer.resizeHandlesOverlay.getFeatures().getArray(), baseLayer.bottomRightResizeHandle)) {
+                        baseLayer.resizeHandlesOverlay.removeFeature(baseLayer.bottomRightResizeHandle);
                     }
                 }
-            }, this);*/
+            }
             
             // Keep updating the extent
             baseLayer.once("postcompose", function(evt) {
                 baseLayer.currentExtent_ = evt.frameState.viewState.projection.extent_;
             }, this);
-
-            /*if(baseLayer.currentExtent_) {
-                var baseLayerResizeHandleCoords = [[
-                    [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1]], [baseLayer.currentExtent_[2]-5, baseLayer.currentExtent_[1]], [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1] + 5], [baseLayer.currentExtent_[2], baseLayer.currentExtent_[1]]
-                    //[50, 50], [100, 100], [200, 50], [50, 50]
-                ]];
-
-                var baseLayerResizeHandleFeature = new ol.Feature({
-                    geometry: new ol.geom.Polygon(baseLayerResizeHandleCoords)
-                });
-
-                baseLayerResizeHandleFeature.setStyle(new ol.style.Style({
-                    fill: new ol.style.Fill({
-                        color: "rgba(220, 150, 20, 0.8)"
-                    })
-                }));
-
-                this.getSource().addFeature(baseLayerResizeHandleFeature);
-            }*/
         }
     }
 }
