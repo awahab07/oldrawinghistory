@@ -102,7 +102,7 @@ ol.layer.Manipulation = function(opt_options) {
         }
 
         if(this.manipulatableBaseLayer_) {
-            this.manipulatableBaseLayer_.originalExtentInPixels = null;
+            this.manipulatableBaseLayer_.resizeState = null;
         }
 
         this.dragFromPx_ = null;
@@ -393,23 +393,42 @@ ol.layer.Manipulation = function(opt_options) {
         var handle = handleOrShapeFeature,
             baseLayer = handle.baseLayer;
         
-        if( !baseLayer.originalExtentInPixels ) {
+        if( !baseLayer.resizeState ) {
             var bottomLeft = map.getPixelFromCoordinate(ol.extent.getBottomLeft(baseLayer.currentExtent_)),
                 topRight = map.getPixelFromCoordinate(ol.extent.getTopRight(baseLayer.currentExtent_));
             
-            baseLayer.originalExtentInPixels = [bottomLeft[0], bottomLeft[1], topRight[0], topRight[1]];
+            baseLayer.resizeState = {
+                originalExtentInPixels: [ bottomLeft[0], bottomLeft[1], topRight[0], topRight[1] ],
+                currentViewResolution: map.getView().getResolution()
+            }
         }
 
-        var extent = baseLayer.originalExtentInPixels,
-            handleExtentCoordinate = [ extent[handle.extentCoordinateIndex[0]], extent[handle.extentCoordinateIndex[1]] ],
-            referenceExtentCoordinate = [ extent[handle.referenceExtentCoordinateIndex[0]], extent[handle.referenceExtentCoordinateIndex[1]] ],
-            diagonalExtentDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentCoordinate, handleExtentCoordinate) ),
-            draggedDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentCoordinate, toPx) ),
+        var viewResolution = baseLayer.resizeState.currentViewResolution,
+            extent = baseLayer.resizeState.originalExtentInPixels,
+            handleExtentPixel = [ extent[handle.extentCoordinateIndex[0]], extent[handle.extentCoordinateIndex[1]] ],
+            referenceExtentPixel = [ extent[handle.referenceExtentCoordinateIndex[0]], extent[handle.referenceExtentCoordinateIndex[1]] ],
+            referenceExtentCoordinate = map.getCoordinateFromPixel(referenceExtentPixel),
+            diagonalExtentDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, handleExtentPixel) ),
+            draggedDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, toPx) ),
             documentResolutionFactor = draggedDistance / diagonalExtentDistance;
 
-            console.log(draggedDistance.toFixed(2), diagonalExtentDistance.toFixed(2), documentResolutionFactor);
+            map.once("postcompose", function(evt){
+                var updatedReferenceExtentCoordinate = map.getCoordinateFromPixel(referenceExtentPixel),
+                    differenceReferenceCoordinate = [ updatedReferenceExtentCoordinate[0] - referenceExtentCoordinate[0], updatedReferenceExtentCoordinate[0] - referenceExtentCoordinate[0] ];
 
-            map.getView().setResolution(map.getView().getResolution() / documentResolutionFactor.toFixed(2));
+                if(differenceReferenceCoordinate[0] || differenceReferenceCoordinate[1]) {
+                    var centerCoordinate = map.getView().getCenter();
+                    
+                    if(centerCoordinate) {
+                        updateCenterCoordinate = [centerCoordinate[0] - differenceReferenceCoordinate[0], centerCoordinate[1] - differenceReferenceCoordinate[1]];
+                        map.getView().setCenter(updateCenterCoordinate);
+
+                        console.log(centerCoordinate, updateCenterCoordinate);
+                    }
+                }
+            });
+
+            map.getView().setResolution(viewResolution / documentResolutionFactor.toFixed(2));
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
