@@ -1,210 +1,210 @@
 <!DOCTYPE html>
 <html>
-    <head>
-        <link rel="stylesheet" type="text/css" href="js/dijit/themes/claro/claro.css">
-        <link rel="stylesheet" type="text/css" href="js/dojox/grid/resources/claroGrid.css">
-        <link rel="stylesheet" type="text/css" href="css/ol.css">
-        <link rel="stylesheet" type="text/css" href="css/main.css">
+<head>
+    <link rel="stylesheet" type="text/css" href="js/dijit/themes/claro/claro.css">
+    <link rel="stylesheet" type="text/css" href="js/dojox/grid/resources/claroGrid.css">
+    <link rel="stylesheet" type="text/css" href="css/ol.css">
+    <link rel="stylesheet" type="text/css" href="css/main.css">
 
-        <!-- OpenLayers 3.0.0-->
-        <script type="text/javascript" src="js/ol-debug.js"></script>
-        <script teyp="text/javascript" src="js/ol-custom/ol-goog.js"></script>
-        <script teyp="text/javascript" src="js/ol-custom/ol-interaction-select.js"></script>
-        <script teyp="text/javascript" src="js/ol-custom/ol-interaction-modify.js"></script>
-        <script teyp="text/javascript" src="js/ol-custom/ol-interaction-draw.js"></script>
-        <script teyp="text/javascript" src="js/ol-custom/ol-structs-rbush.js"></script>
+    <!-- OpenLayers 3.0.0-->
+    <script type="text/javascript" src="js/ol-debug.js"></script>
+    <script teyp="text/javascript" src="js/ol-custom/ol-goog.js"></script>
+    <script teyp="text/javascript" src="js/ol-custom/ol-interaction-select.js"></script>
+    <script teyp="text/javascript" src="js/ol-custom/ol-interaction-modify.js"></script>
+    <script teyp="text/javascript" src="js/ol-custom/ol-interaction-draw.js"></script>
+    <script teyp="text/javascript" src="js/ol-custom/ol-structs-rbush.js"></script>
 
-        <!-- dojo 1.9 -->
-        <script type="text/javascript">
-            dojoConfig= {
-                isDebug: true,
-                has: {
-                    "dojo-firebug": true
-                },
-                parseOnLoad: false,
-                async: true
-            };
-        </script>
-        <script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
+    <!-- dojo 1.9 -->
+    <script type="text/javascript">
+        dojoConfig= {
+            isDebug: true,
+            has: {
+                "dojo-firebug": true
+            },
+            parseOnLoad: false,
+            async: true
+        };
+    </script>
+    <script type="text/javascript" src="js/dojo/dojo.js" data-dojo-config=""></script>
 
-        <script type="text/javascript">
-            var layerStore, layerGrid, widgetDebug = null, mapControlsToolbar; // For Debugging
-            require([
-                        "dojo/parser",
-                        "dijit/layout/ContentPane",
-                        "dijit/layout/BorderContainer",
-                        "dijit/registry",
-                        "dojo/_base/lang",
-                        "dojox/mvc/sync",
-                        "dojox/grid/DataGrid",
-                        "demo/widget/MapWidget",
-                        "demo/stores/LayerFeatureStore",
-                        "demo/widget/ControlsToolbar",
-                        "dojo/data/ObjectStore",
-                        "dojo/store/Observable",
-                        "dojo/request",
-                        "dojo/ready",
-                        "dojo/domReady!"
-                    ],
-                    function(parser, ContentPane, BorderContainer, registry, lang, sync, DataGrid, MapWidget, LayerFeatureStore, ControlsToolbar, ObjectStore, Observable, request, ready) {
-                        parser.parse();
+    <script type="text/javascript">
+        var layerStore, layerGrid, widgetDebug = null, mapControlsToolbar; // For Debugging
+        require([
+                    "dojo/parser",
+                    "dijit/layout/ContentPane",
+                    "dijit/layout/BorderContainer",
+                    "dijit/registry",
+                    "dojo/_base/lang",
+                    "dojox/mvc/sync",
+                    "dojox/grid/DataGrid",
+                    "demo/widget/MapWidget",
+                    "demo/stores/LayerFeatureStore",
+                    "demo/widget/ControlsToolbar",
+                    "dojo/data/ObjectStore",
+                    "dojo/store/Observable",
+                    "dojo/request",
+                    "dojo/ready",
+                    "dojo/domReady!"
+                ],
+                function(parser, ContentPane, BorderContainer, registry, lang, sync, DataGrid, MapWidget, LayerFeatureStore, ControlsToolbar, ObjectStore, Observable, request, ready) {
+                    parser.parse();
 
-                        ready(function(){
-                            // The Controller Code
-                            var mapWidget = registry.byId("mapWidgetId"),
+                    ready(function(){
+                        // The Controller Code
+                        var mapWidget = registry.byId("mapWidgetId"),
                                 mapToolbarWidget = registry.byId("mapToolbarWidgetId"),
-                                    undoButton = registry.byId("mapUndoButtonId"),
-                                    redoButton = registry.byId("mapRedoButtonId"),
-                                    deleteButton = registry.byId("mapDeleteButtonId"),
-                                    drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
-                                    drawArrowButton = registry.byId("mapArrowDrawButtonId"),
-                                    fixedMarkerButton = registry.byId("fixedMarkerButtonId"),
-                                    scalableMarkerButton = registry.byId("scalableMarkerButtonId"),
-                                    exportToPngButton = registry.byId("exportToPngButtonId"),
-                                    exportToJpgButton = registry.byId("exportToJpgButtonId"),
-                                    mapControlsToolbar = registry.byId("controlsToolbarId");
+                                undoButton = registry.byId("mapUndoButtonId"),
+                                redoButton = registry.byId("mapRedoButtonId"),
+                                deleteButton = registry.byId("mapDeleteButtonId"),
+                                drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
+                                drawArrowButton = registry.byId("mapArrowDrawButtonId"),
+                                fixedMarkerButton = registry.byId("fixedMarkerButtonId"),
+                                scalableMarkerButton = registry.byId("scalableMarkerButtonId"),
+                                exportToPngButton = registry.byId("exportToPngButtonId"),
+                                exportToJpgButton = registry.byId("exportToJpgButtonId"),
+                                mapControlsToolbar = registry.byId("controlsToolbarId");
 
-                            sync(mapControlsToolbar, "zoomValue", mapWidget, "sliderResolution", sync.from);
-                            sync(mapWidget, "mapResolution", mapControlsToolbar, "mapZoomValue", sync.from);
+                        sync(mapWidget, "mapResolution", mapControlsToolbar, "mapViewResolution", sync.from);
+                        sync(mapControlsToolbar, "mapResolution", mapWidget, "sliderResolution", sync.from);
 
-                            mapControlsToolbar.watch("margin", function(a, b, c){
-                               //console.log(mapControlsToolbar.getMargins());
-                                mapWidget.marginsUpdates(mapControlsToolbar.getMargins());
-                            });
-
-                            // Binding Flags
-                            sync(mapControlsToolbar, "shouldGrayOut", mapWidget, "shouldGrayOut", sync.from);
-                            sync(mapControlsToolbar, "shouldConstrainPanning", mapWidget, "shouldConstrainPanning", sync.from);
-
-                            layerStore = new Observable(new LayerFeatureStore());
-                            mapWidget.processLayerStore(layerStore);
-
-                            layerGrid = new DataGrid({
-                                store: dataStore = new ObjectStore({objectStore: layerStore}),
-                                structure: [
-                                    {name:"Layer", field:"title", width: "120px"},
-                                    {name:"Visible", field:"visible", width: "50px", type: dojox.grid.cells.Bool, editable: true}
-                                ]
-                            }, "layerGridDiv"); // make sure you have a target HTML element with this id
-                            layerGrid.startup();
-                            layerGrid.getRowNode(0).click();
-
-                            layerGrid.on("rowClick", function(evt){
-                                layerStore.notify(layerStore.data[evt.rowIndex], layerStore.data[evt.rowIndex].id);
-                            });
-
-                            layerGrid.on("rowClick", function(evt){
-                                mapWidget.layerRowClicked(evt.rowIndex);
-                            });
-
-                            undoButton.on('click', lang.hitch(mapWidget, 'undo'));
-
-                            redoButton.on('click', lang.hitch(mapWidget, 'redo'));
-
-                            deleteButton.on('click', lang.hitch(mapWidget, 'deleteSelectedFeatures'));
-
-                            drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
-
-                            drawArrowButton.on('click', lang.hitch(mapWidget, 'activateArrowDrawing'));
-
-                            fixedMarkerButton.on('click', lang.hitch(mapWidget, 'placeFixedMarker'));
-
-                            scalableMarkerButton.on('click', lang.hitch(mapWidget, 'placeScalableMarker'));
-
-                            exportToPngButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/png'));
-
-                            exportToJpgButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/jpeg'));
+                        mapControlsToolbar.watch("margin", function(a, b, c){
+                            //console.log(mapControlsToolbar.getMargins());
+                            mapWidget.marginsUpdates(mapControlsToolbar.getMargins());
                         });
 
+                        // Binding Flags
+                        sync(mapControlsToolbar, "shouldGrayOut", mapWidget, "shouldGrayOut", sync.from);
+                        sync(mapControlsToolbar, "shouldConstrainPanning", mapWidget, "shouldConstrainPanning", sync.from);
+
+                        layerStore = new Observable(new LayerFeatureStore());
+                        mapWidget.processLayerStore(layerStore);
+
+                        layerGrid = new DataGrid({
+                            store: dataStore = new ObjectStore({objectStore: layerStore}),
+                            structure: [
+                                {name:"Layer", field:"title", width: "120px"},
+                                {name:"Visible", field:"visible", width: "50px", type: dojox.grid.cells.Bool, editable: true}
+                            ]
+                        }, "layerGridDiv"); // make sure you have a target HTML element with this id
+                        layerGrid.startup();
+                        layerGrid.getRowNode(0).click();
+
+                        layerGrid.on("rowClick", function(evt){
+                            layerStore.notify(layerStore.data[evt.rowIndex], layerStore.data[evt.rowIndex].id);
+                        });
+
+                        layerGrid.on("rowClick", function(evt){
+                            mapWidget.layerRowClicked(evt.rowIndex);
+                        });
+
+                        undoButton.on('click', lang.hitch(mapWidget, 'undo'));
+
+                        redoButton.on('click', lang.hitch(mapWidget, 'redo'));
+
+                        deleteButton.on('click', lang.hitch(mapWidget, 'deleteSelectedFeatures'));
+
+                        drawPolygonButton.on('click', lang.hitch(mapWidget, 'activatePolygonDrawing'));
+
+                        drawArrowButton.on('click', lang.hitch(mapWidget, 'activateArrowDrawing'));
+
+                        fixedMarkerButton.on('click', lang.hitch(mapWidget, 'placeFixedMarker'));
+
+                        scalableMarkerButton.on('click', lang.hitch(mapWidget, 'placeScalableMarker'));
+
+                        exportToPngButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/png'));
+
+                        exportToJpgButton.on('click', lang.hitch(mapWidget, 'exportCanvas', 'image/jpeg'));
                     });
-        </script>
-    </head>
-    
-    <body class="claro">
 
-        <div style="width:100%;height:100%;" id="appLayout" class="demoLayout"
-            data-dojo-type="dijit/layout/BorderContainer"
-            data-dojo-props="design: 'headline'">
-                
-                <div style="height:11%"
-                    class="edgePanel"
-                    data-dojo-type="dijit/layout/ContentPane"
-                    data-dojo-props="region: 'top'">
+                });
+    </script>
+</head>
 
-                    <!-- Map Controls Toolbar -->
-                    <div id="controlsToolbarId" data-dojo-type="demo/widget/ControlsToolbar"></div>
+<body class="claro">
 
-                </div>
-            
-                <div style="width: 15%" id="leftCol" class="edgePanel"
-                    data-dojo-type="dijit/layout/ContentPane"
-                    data-dojo-props="region: 'leading', splitter: true">
+<div style="width:100%;height:100%;" id="appLayout" class="demoLayout"
+     data-dojo-type="dijit/layout/BorderContainer"
+     data-dojo-props="design: 'headline'">
 
-                   <div id="layerGridDiv"></div>
-                </div>
+    <div style="height:11%"
+         class="edgePanel"
+         data-dojo-type="dijit/layout/ContentPane"
+         data-dojo-props="region: 'top'">
 
-                <div class="centerPanel"
-                    data-dojo-type="dijit/layout/ContentPane"
-                    data-dojo-props="region: 'center'">
+        <!-- Map Controls Toolbar -->
+        <div id="controlsToolbarId" data-dojo-type="demo/widget/ControlsToolbar"></div>
 
-                    <div style="width:100%;height:100%;" id="mapLayout" class="demoLayout"
-                        data-dojo-type="dijit/layout/BorderContainer"
-                        data-dojo-props="design: 'headline'">
+    </div>
 
-                        <div style="width: 32px;" id="mapToolbarColId" class="edgePanel"
-                            data-dojo-type="dijit/layout/ContentPane"
-                            data-dojo-props="region: 'leading', splitter: false">
+    <div style="width: 15%" id="leftCol" class="edgePanel"
+         data-dojo-type="dijit/layout/ContentPane"
+         data-dojo-props="region: 'leading', splitter: true">
 
-                            <div id="mapToolbarWidgetId" data-dojo-attach-point="mapToolbar" data-dojo-type="dijit/Toolbar">
-                                <div id="mapUndoButtonId" data-dojo-attach-point="undoButton" data-dojo-type="dijit/form/Button"
-                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconUndo', showLabel:false">Undo</div>
+        <div id="layerGridDiv"></div>
+    </div>
 
-                                <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
-                                    data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
+    <div class="centerPanel"
+         data-dojo-type="dijit/layout/ContentPane"
+         data-dojo-props="region: 'center'">
 
-                                <div id="mapDeleteButtonId" data-dojo-attach-point="deleteButton" data-dojo-type="dijit/form/Button"
-                                     data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconDelete', showLabel:false">Delete</div>
+        <div style="width:100%;height:100%;" id="mapLayout" class="demoLayout"
+             data-dojo-type="dijit/layout/BorderContainer"
+             data-dojo-props="design: 'headline'">
 
-                                <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
-                                    data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>
+            <div style="width: 32px;" id="mapToolbarColId" class="edgePanel"
+                 data-dojo-type="dijit/layout/ContentPane"
+                 data-dojo-props="region: 'leading', splitter: false">
 
-                                <div id="mapArrowDrawButtonId" data-dojo-attach-point="arrowDrawButton" data-dojo-type="dijit/form/Button"
-                                     data-dojo-props="iconClass:'dijitEditorIcon drawArrowButton', showLabel:false">Draw Arrow</div>
+                <div id="mapToolbarWidgetId" data-dojo-attach-point="mapToolbar" data-dojo-type="dijit/Toolbar">
+                    <div id="mapUndoButtonId" data-dojo-attach-point="undoButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconUndo', showLabel:false">Undo</div>
 
-                                <div id="fixedMarkerButtonId" data-dojo-attach-point="fixedMarkerButton" data-dojo-type="dijit/form/Button"
-                                     data-dojo-props="iconClass:'dijitEditorIcon fixedMarkerButton', showLabel:false">Fixed Marker</div>
+                    <div id="mapRedoButtonId" data-dojo-attach-point="redoButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconRedo', showLabel:false">Redo</div>
 
-                                <div id="scalableMarkerButtonId" data-dojo-attach-point="scalableMarker" data-dojo-type="dijit/form/Button"
-                                     data-dojo-props="iconClass:'dijitEditorIcon scalableMarkerButton', showLabel:false">Scalable Marker</div>
+                    <div id="mapDeleteButtonId" data-dojo-attach-point="deleteButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon dijitEditorIconDelete', showLabel:false">Delete</div>
 
-                                <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon exportToolbarButton', showLabel:false">
-                                    <span>Export</span>
-                                    <div data-dojo-type="dijit/TooltipDialog">
-                                        <div id="exportToPngButtonId" data-dojo-attach-point="exportPngButton" data-dojo-type="dijit/form/Button"
-                                             data-dojo-props="iconClass:'dijitEditorIcon exportToPngButton', showLabel:true">PNG</div>
-                                        <br />
-                                        <div id="exportToJpgButtonId" data-dojo-attach-point="exportJpgButton" data-dojo-type="dijit/form/Button"
-                                             data-dojo-props="iconClass:'dijitEditorIcon exportToJpgButton', showLabel:true">JPEG</div>
-                                    </div>
-                                </div>
+                    <div id="mapPolygonDrawButtonId" data-dojo-attach-point="polygonDrawButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon drawPolygonToolbarButton', showLabel:false">Draw Polygon</div>
 
-                            </div>
+                    <div id="mapArrowDrawButtonId" data-dojo-attach-point="arrowDrawButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon drawArrowButton', showLabel:false">Draw Arrow</div>
 
+                    <div id="fixedMarkerButtonId" data-dojo-attach-point="fixedMarkerButton" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon fixedMarkerButton', showLabel:false">Fixed Marker</div>
+
+                    <div id="scalableMarkerButtonId" data-dojo-attach-point="scalableMarker" data-dojo-type="dijit/form/Button"
+                         data-dojo-props="iconClass:'dijitEditorIcon scalableMarkerButton', showLabel:false">Scalable Marker</div>
+
+                    <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon exportToolbarButton', showLabel:false">
+                        <span>Export</span>
+                        <div data-dojo-type="dijit/TooltipDialog">
+                            <div id="exportToPngButtonId" data-dojo-attach-point="exportPngButton" data-dojo-type="dijit/form/Button"
+                                 data-dojo-props="iconClass:'dijitEditorIcon exportToPngButton', showLabel:true">PNG</div>
+                            <br />
+                            <div id="exportToJpgButtonId" data-dojo-attach-point="exportJpgButton" data-dojo-type="dijit/form/Button"
+                                 data-dojo-props="iconClass:'dijitEditorIcon exportToJpgButton', showLabel:true">JPEG</div>
                         </div>
-
-                        <div class="centerPanel"
-                            data-dojo-type="dijit/layout/ContentPane"
-                            data-dojo-props="region: 'center'">
-
-                            <div id="mapWidgetId" data-dojo-type="demo/widget/MapWidget"
-                                data-dojo-props="imageUrl:'img/scenery-800x600.jpg', width:'100%', height:'100%', imageWidth:800, imageHeight:600, minZoom:0, maxZoom:10, zoomFactor:0.5, zoom:1"></div>
-
-                        </div>
-
                     </div>
 
                 </div>
+
+            </div>
+
+            <div class="centerPanel"
+                 data-dojo-type="dijit/layout/ContentPane"
+                 data-dojo-props="region: 'center'">
+
+                <div id="mapWidgetId" data-dojo-type="demo/widget/MapWidget"
+                     data-dojo-props="imageUrl:'img/scenery-800x600.jpg', width:'100%', height:'100%', imageWidth:800, imageHeight:600, minZoom:0, maxZoom:10, zoomFactor:0.5, zoom:1"></div>
+
+            </div>
+
         </div>
-        
-    </body>
+
+    </div>
+</div>
+
+</body>
 </html>

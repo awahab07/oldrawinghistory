@@ -16,10 +16,10 @@ define([
     "dojo/text!./templates/MapWidget.html"
 ], function(declare, baseFx, lang, arrayUtil, on, domStyle, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
     return declare([_WidgetBase, _TemplatedMixin], {
- 
+
         // Our template - important!
         templateString: template,
- 
+
         // A class to be applied to the root node in our template
         baseClass: "openlayersMapWidget",
 
@@ -40,7 +40,7 @@ define([
         zoom: 1,
 
         mapResolution: 1,
-        sliderResolution: 100, // Tracking and watching resolution coming from zoom slider
+        sliderResolution: 1,
         minResolution: 0.1,
         maxResolution: 10,
         resolutionStep: 0.25,
@@ -148,11 +148,11 @@ define([
                  */
                 layer.getFeatureId_ = function(feature) {
                     googGetFeatureId(feature);
-                    
+
                     if(!feature.getId()) {
                         console.error("A valid feature.getId() in not present.");
                     }
-                    
+
                     return feature.getId();
                 }
 
@@ -175,9 +175,9 @@ define([
                         fid: feature.fid,
                         //style: feature.getStyle().clone(),
                         properties: feature.properties // @TODO: implement clone
-                    }    
+                    }
                 }
-                
+
                 /**
                  * Inserts a new command, the drawing events may call this function to keep track of the changes
                  * @param type possible values are "CREATE" | "MODIFY" | "REMOVE"
@@ -190,14 +190,14 @@ define([
                     this.commandsHistoryStore.removeInvalidCommandRecords();
 
                     this.commandsHistoryStore.add({id: ++this.undoStep, fid:fid, command:command, feature:feature, from:from, to:to});
-                }                
+                }
 
                 /**
                  * Will take care that the features pre operation (DELETE or MODIFY) state is tracked
                  * @param type string = "DELETE"|"MODIFY"
                  * @param feature ol.Feature that is modified
                  */
-                 layer.ensureStateTrackedBeforeOperation_ = function(feature) {
+                layer.ensureStateTrackedBeforeOperation_ = function(feature) {
                     // Retrieving a from reference
                     var fromRef = null;
                     var queryResults = this.commandsHistoryStore.query(function(item){
@@ -218,7 +218,7 @@ define([
                     }
 
                     return fromRef;
-                 }
+                }
 
                 /**
                  * Will retrieve the record tracking the state of feature before operations DELETE|MODIFY
@@ -501,9 +501,9 @@ define([
                 //featureOverlay.setMap(this.map);
 
                 var draw = new ol.interaction.DrawWithShapes({
-                        features: this.activeLayer.getSource_().getFeatures(),
-                        type: 'Polygon'
-                    });
+                    features: this.activeLayer.getSource_().getFeatures(),
+                    type: 'Polygon'
+                });
                 this.map.addInteraction(draw);
 
                 draw.on("drawend",
@@ -570,7 +570,7 @@ define([
                         src: 'img/red-marker.png'
                     })),
                     text: new ol.style.Text({
-                        font: '12px Calibri,sans-serif',
+                        font: '42px Calibri,sans-serif',
                         text: markerNumber,
                         fill: new ol.style.Fill({
                             color: '#000'
@@ -674,12 +674,13 @@ define([
             this.imageSize = [400, 400];
             this.imageCenter = [200, 200];
             this.imageExtent = [0, 0, 400, 400];
+            this.documentExtent = [0, 0, 500, 600];
             this.drawingExtent = [
                     this.imageExtent[0] - this.marginLeft,
                     this.imageExtent[1] - this.marginBottom,
                     this.imageExtent[2] + this.marginRight,
                     this.imageExtent[3] + this.marginTop
-                ];
+            ];
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({
@@ -689,23 +690,23 @@ define([
             });
 
             /*// Setting up base image layer
-            this.baseImageLayer = new ol.layer.Tile({
-                source: new ol.source.Zoomify({
-                    url: '/galsys/zommableImages/scroll/',
-                    size: [88146, 4122],
-                    crossOrigin: 'anonymous'
-                })
-            });
+             this.baseImageLayer = new ol.layer.Tile({
+             source: new ol.source.Zoomify({
+             url: '/galsys/zommableImages/scroll/',
+             size: [88146, 4122],
+             crossOrigin: 'anonymous'
+             })
+             });
 
-            // Setting up map view based on pixel project and image size
-            this.mapView = new ol.View({
-                projection: this.pixelProjection,
-                minZoom: 0,
-                maxZoom: 7,
-                extent: [0, 0, 88146, -4122*4],
-                center: [69000, -2061],
-                zoom: 0
-            })*/
+             // Setting up map view based on pixel project and image size
+             this.mapView = new ol.View({
+             projection: this.pixelProjection,
+             minZoom: 0,
+             maxZoom: 7,
+             extent: [0, 0, 88146, -4122*4],
+             center: [69000, -2061],
+             zoom: 0
+             })*/
 
             // Setting up base image layer
             this.baseImageLayer = new ol.layer.Image({
@@ -716,33 +717,32 @@ define([
                 })
             });
 
-
-            this.viewResolutionChanged = function() {
-                if(!isNaN(this.mapView.get('resolution')))
-                    this.set('mapResolution', this.mapView.get('resolution'));
-            }
-
             this.buildViewResolutions = function() {
-                return [10, 7.5, 5, 2.5, 1, 0.5, 0.25, 0.1, 0.075, 0.05, 0.025, 0.01, 0.0075, 0.005, 0.0025, 0.001];
+                return [100, 50, 25, 10, 5, 4, 2, 1, 0.5, 0.25, 0.125, 0.1];
             }
 
             // Setting up map view based on pixel project and image size
             this.mapView = new ol.View({
                 projection: this.pixelProjection,
                 /*minZoom: 0,
-                maxZoom: 7,*/
-                extent: this.drawingExtent,
+                 maxZoom: 7,*/
+                extent: [250, 300, 250, 300],
                 center: this.imageCenter,
                 resolution: 1,
                 resolutions: this.buildViewResolutions()
             });
 
+            this.viewResolutionChanged = function() {
+                if(!isNaN(this.mapView.get('resolution')))
+                    this.set('mapResolution', this.mapView.get('resolution'));
+            }
+
             this.mapView.on("change:resolution", this.viewResolutionChanged, this);
 
             this.watch('sliderResolution', function(attr, oldVal, newVal) {
-                if(!isNaN(newVal)) {
-                    var mapResolution = newVal / 100;
-                    this.mapView.setResolution(mapResolution);
+                console.log('sliderResolution changed', newVal);
+                if(!isNaN(newVal) && newVal > 0 /* @TODO and if within appropriate range*/) {
+                    this.mapView.setResolution(newVal);
                 }
             });
 
@@ -789,10 +789,16 @@ define([
 
                 this.map.on('postcompose', function(event) {
                     if(self.shouldGrayOut) {
-                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.drawingExtent[0], self.drawingExtent[1]]),
-                            drawingTopRight = self.map.getPixelFromCoordinate([self.drawingExtent[2], self.drawingExtent[3]]);
+                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.documentExtent[0], self.documentExtent[1]]),
+                            drawingTopRight = self.map.getPixelFromCoordinate([self.documentExtent[2], self.documentExtent[3]]);
 
                         var ctx = event.context;
+                        ctx.beginPath();
+                        ctx.strokeStyle = "grey";
+                        ctx.lineWidth = 2;
+                        ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], drawingTopRight[0]-drawingBottomLeft[0], drawingTopRight[1]-drawingBottomLeft[1]);
+                        ctx.stroke();
+
                         ctx.beginPath();
                         //ctx.moveTo(drawingBottomLeft[0], drawingBottomLeft[1]);
                         //ctx.lineTo(drawingBottomLeft[0], drawingTopRight[1]);
@@ -803,13 +809,13 @@ define([
                         ctx.rect(drawingTopRight[0], 0, 100000, 100000 );
                         ctx.rect(0, drawingBottomLeft[1], 100000, 100000 );
                         /*ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], drawingTopRight[0]-drawingBottomLeft[0], drawingTopRight[1]-drawingBottomLeft[1]);
-                        ctx.rect(1000, 0, -1000, 1000);*/
-                        ctx.fillStyle = "grey";
+                         ctx.rect(1000, 0, -1000, 1000);*/
+                        ctx.fillStyle = "#EEE";
                         ctx.fill();
                         //ctx.stroke();
                         /*var canvas = event.context.canvas;
-                        event.context.fillStyle = "grey";
-                        event.context.fillRect(0, 0, 400, 400);*/
+                         event.context.fillStyle = "grey";
+                         event.context.fillRect(0, 0, 400, 400);*/
                     }
                 }, this);
                 this.map.renderSync();

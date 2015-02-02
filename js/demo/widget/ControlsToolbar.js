@@ -24,11 +24,14 @@ define([
         // A class to be applied to the root node in our template
         baseClass: "mapControlsToolbarWidget",
         zoomValue: 100,
-        mapZoomValue: 1,
+        mapResolution: 1,
+        mapViewResolution: 1,
         margin: 0,
         shouldGrayOut: true,
         shouldConstrainPanning: true,
         margins: null,
+
+        widthToHeightRatio: 500 / 600,
 
         getMargins: function() {
             var self = this;
@@ -47,21 +50,27 @@ define([
 
         },
 
-        _zoomValueChanged: function(value) {
+        /**
+         * Event Handler of Slider or Text/Number Widgets on user interaction
+         * @param value
+         * @private
+         */
+        _zoomValueChanged: function(changedZoomValue) {
             var self = this,
-                changedValue = Math.floor(value);
+                resolutionValue = 100 / changedZoomValue;
 
-            self._updateControlsZoomValue(changedValue);
+            self._updateControlsZoomValue(changedZoomValue);
 
-            self.set('zoomValue', changedValue);
+            self.set('zoomValue', changedZoomValue);
+            self.set('mapResolution', resolutionValue);
         },
 
-        _updateControlsZoomValue: function(changedValue) {
+        _updateControlsZoomValue: function(zoomValue) {
             var self = this;
 
-            if(!isNaN(changedValue) && changedValue >= 1) {
-                self._mapSlider.set('value', changedValue);
-                self._mapSliderValueSpinner.set('value', changedValue);
+            if(!isNaN(zoomValue) && zoomValue >= 1) {
+                self._mapSlider.set('value', zoomValue);
+                self._mapSliderValueSpinner.set('value', zoomValue);
             }
         },
 
@@ -117,9 +126,9 @@ define([
             });
             domConstruct.place(
                     '<table>' +
-                        '<tr><td>Margins px</td><td></td><td id="topMarginContainerId"></td><td></td></tr>'+
-                        '<tr><td></td><td id="leftMarginContainerId"></td><td></td><td id="rightMarginContainerId"></td></tr>'+
-                        '<tr><td></td><td></td><td id="bottomMarginContainerId"></td><td></td></tr>'+
+                    '<tr><td>Margins px</td><td></td><td id="topMarginContainerId"></td><td></td></tr>'+
+                    '<tr><td></td><td id="leftMarginContainerId"></td><td></td><td id="rightMarginContainerId"></td></tr>'+
+                    '<tr><td></td><td></td><td id="bottomMarginContainerId"></td><td></td></tr>'+
                     '</table>',
                 self._marginDiv,
                 0
@@ -155,8 +164,8 @@ define([
             });
             domConstruct.place(
                     '<table>' +
-                        '<tr><td>Gray Out</td><td id="grayOutContainerId"></td></tr>'+
-                        '<tr><td>Constrain Panning</td><td id="constrainPanningContainerId"></td></tr>'+
+                    '<tr><td>Gray Out</td><td id="grayOutContainerId"></td></tr>'+
+                    '<tr><td>Constrain Panning</td><td id="constrainPanningContainerId"></td></tr>'+
                     '</table>',
                 self._flagsDiv,
                 0
@@ -213,13 +222,13 @@ define([
                 }
             });
             domConstruct.place(
-                '<table>' +
+                    '<table>' +
                     '<tr>' +
-                        '<td id="sliderTDId"></td>' +
-                        '<td id="spinnerTDId"></td>' +
-                        '<td>%</td>' +
+                    '<td id="sliderTDId"></td>' +
+                    '<td id="spinnerTDId"></td>' +
+                    '<td>%</td>' +
                     '</tr>' +
-                '</table>',
+                    '</table>',
                 self._sliderDiv,
                 0
             );
@@ -243,9 +252,12 @@ define([
             domConstruct.place(self.constrainPanningCheckBox.domNode, "constrainPanningContainerId", 0);
             // END Flags
 
-            self.watch('mapZoomValue', function(attr, oldVal, newVal) {
-                //if(!isNaN(newVal) && newVal > 0)
-                    self._updateControlsZoomValue(newVal * 100);
+            self.watch('mapViewResolution', function(attr, oldVal, newVal) {
+                console.log('ToolBar Watch', newVal);
+                if(!isNaN(newVal) && newVal > 0) {
+                    var zoomValue = Math.floor(100 / newVal);
+                    self._updateControlsZoomValue(zoomValue);
+                }
             });
         },
         startup: function() {
