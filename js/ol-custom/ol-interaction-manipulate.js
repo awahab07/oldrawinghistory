@@ -280,6 +280,7 @@ ol.interaction.Manipulate = function(opt_options) {
 	/**
 	 * @inheritDoc
 	 * Checks if Browser Event handled by the Select Functionality of features
+	 * Returns "pass" {bool} Whether to pass teh event or stop
 	 */
 	this.handleMapBrowserEventForSelect_ = function(mapBrowserEvent) {
 		// Handle PointerDrag and PointerUp Events for Movement of Shapes or grab Handle features if this.draggingFeature_ is not null
@@ -406,7 +407,7 @@ ol.interaction.Manipulate = function(opt_options) {
 	 * @inheritDoc
 	 */
 	this.handleMapBrowserEvent = function(mapBrowserEvent) {
-	  var handled = false;
+	  var pass = true;
 	  if(this.shouldRouteToSelect_(mapBrowserEvent)) {
 	  	
 	  	// Also if a manipulatable baseLayer is provided, pass the event to Manipulation Layer to allow it to check if
@@ -415,13 +416,13 @@ ol.interaction.Manipulate = function(opt_options) {
 	  		this.manipulationLayer_.showOrHideBaseLayerManipulationHandles(this.getMap(), mapBrowserEvent);
 	  	}
 
-	  	handled = this.handleMapBrowserEventForSelect_(mapBrowserEvent);
+	  	pass = this.handleMapBrowserEventForSelect_(mapBrowserEvent);
 	  }
 	  
 	  if(this.isInGeometryModificationMode_)
-	  	return goog.base(this, 'handleMapBrowserEvent', mapBrowserEvent) && !handled;
+	  	return goog.base(this, 'handleMapBrowserEvent', mapBrowserEvent) && pass;
 	  else
-	  	return handled;
+	  	return pass;
 	};
 
 	/**
