@@ -63,6 +63,14 @@ clear:both;
     background-image: url("../js/demo/widget/images/icon-line-arrow.gif");
 }
 
+.zoomToExtentButton {
+    background-image: url("../js/demo/widget/images/icon-extent.png");
+}
+
+.paperButton {
+    background-image: url("../js/demo/widget/images/icon-paper.gif");
+}
+
 .exportToPngButton {
     background-image: url("../js/demo/widget/images/icon-png.png");
 }

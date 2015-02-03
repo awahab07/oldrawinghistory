@@ -399,7 +399,10 @@ ol.layer.Manipulation = function(opt_options) {
             
             baseLayer.resizeState = {
                 originalExtentInPixels: [ bottomLeft[0], bottomLeft[1], topRight[0], topRight[1] ],
-                currentViewResolution: map.getView().getResolution()
+                currentViewResolution: map.getView().getResolution(),
+                currentDocumentResolutionFactor: baseLayer.documentResolutionFactor,
+                documentExtentBottomLeftPixels: map.getPixelFromCoordinate(ol.extent.getBottomLeft(baseLayer.documentExtent)),
+                documentExtentTopRightPixels: map.getPixelFromCoordinate(ol.extent.getTopRight(baseLayer.documentExtent))
             }
         }
 
@@ -410,17 +413,21 @@ ol.layer.Manipulation = function(opt_options) {
             referenceExtentCoordinate = map.getCoordinateFromPixel(referenceExtentPixel),
             diagonalExtentDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, handleExtentPixel) ),
             draggedDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, toPx) ),
-            documentResolutionFactor = draggedDistance / diagonalExtentDistance,
-            resolutionBeforeHardScale = map.getView().getResolution();
+            documentResolutionFactor = draggedDistance / diagonalExtentDistance;
 
-            map.getView().setResolution(viewResolution / documentResolutionFactor.toFixed(2));
+            map.getView().setResolution(viewResolution / documentResolutionFactor);
 
-            var resolutionAfterHardScale = map.getView().getResolution(),
-                resolutionDifference = resolutionBeforeHardScale - resolutionAfterHardScale;
+            // resolution factor
+            var resolutionDifference = baseLayer.resizeState.currentViewResolution - map.getView().getResolution();
+            baseLayer.documentResolutionFactor = baseLayer.resizeState.currentDocumentResolutionFactor + resolutionDifference;
+
+            // persisting document extent
+            var bottomLeftExtentCoordinate = map.getCoordinateFromPixel(baseLayer.resizeState.documentExtentBottomLeftPixels),
+                topRightExtentCoordinate = map.getCoordinateFromPixel(baseLayer.resizeState.documentExtentTopRightPixels);
             
-            baseLayer.documentResolutionFactor += resolutionDifference;
+            baseLayer.documentExtent = [bottomLeftExtentCoordinate[0], bottomLeftExtentCoordinate[1], topRightExtentCoordinate[0], topRightExtentCoordinate[1]];
 
-            //console.log("resolutionBeforeHardScale", resolutionBeforeHardScale, "resolutionAfterHardScale", resolutionAfterHardScale, "documentResolutionFactor", documentResolutionFactor);
+            console.log("resolutionDifference", resolutionDifference, "documentResolutionFactor", baseLayer.documentResolutionFactor, "res + fac", map.getView().getResolution() + baseLayer.documentResolutionFactor);
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {

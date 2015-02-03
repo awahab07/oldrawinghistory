@@ -487,6 +487,20 @@ define([
                 this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
             }
 
+            this.zoomToDocumentExtent = function() {
+                this.mapView.fitExtent(this.baseImageLayer.documentExtent, this.map.getSize())
+            }
+
+            this.paperWidthChanged = function(width) {
+                if(!isNaN(width) && width > 0 && width < 20000)
+                    this.baseImageLayer.documentExtent[2] = width;
+            }
+
+            this.paperHeightChanged = function(height) {
+                if(!isNaN(height) && height > 0 && height < 20000)
+                    this.baseImageLayer.documentExtent[3] = height;
+            }
+
             // Markers
             this.placeFixedMarker = function() {
                 var markerNumber = '' + ++this._fixedMarkerCount,
@@ -578,10 +592,27 @@ define([
             this.drawInteraction = new ol.interaction.DrawWithShapes({});
 
             this.exportCanvas = function(encoding) {
+
                 this.map.once('postcompose', function(event) {
+                    var pixelBottomLeft = this.map.getPixelFromCoordinate(ol.extent.getBottomLeft(this.baseImageLayer.documentExtent)),
+                        pixelTopRight = this.map.getPixelFromCoordinate(ol.extent.getTopRight(this.baseImageLayer.documentExtent));
+                    
                     var canvas = event.context.canvas;
-                    this.exportLink.href = canvas.toDataURL(encoding || 'image/png');
+                    var documentImageData = event.context.getImageData(0, 0, 1000, 1000);//event.context.getImageData(pixelBottomLeft[0], pixelBottomLeft[1], pixelTopRight[0], pixelTopRight[1]);
+                    
+                    var hiddenCanvas = document.getElementById("hiddenExportCanvasId");
+                    hiddenCanvas.style.width = '1000px'; //this.baseImageLayer.documentExtent[2] + "px";
+                    hiddenCanvas.style.height = '1000px'; //this.baseImageLayer.documentExtent[3] + "px";
+                    
+                    var hiddenContext = hiddenCanvas.getContext("2d");
+                    hiddenContext.putImageData(documentImageData, 0, 0);
+                    
+                    this.exportLink.href = hiddenCanvas.toDataURL('image/png');
                     this.exportLink.click();
+
+
+                    /*this.exportLink.href = canvas.toDataURL(encoding || 'image/png');
+                    this.exportLink.click();*/
                 }, this);
                 this.map.renderSync();
             }
@@ -605,19 +636,12 @@ define([
             this.imageSize = [400, 400];
             this.imageCenter = [200, 200];
             this.imageExtent = [0, 0, 400, 400];
-            this.documentExtent = [0, 0, 500, 600];
-            this.drawingExtent = [
-                    this.imageExtent[0] - this.marginLeft,
-                    this.imageExtent[1] - this.marginBottom,
-                    this.imageExtent[2] + this.marginRight,
-                    this.imageExtent[3] + this.marginTop
-            ];
 
             // Setting up widget projection
             this.pixelProjection = new ol.proj.Projection({
                 code: 'pixel',
                 units: 'pixels',
-                extent: this.drawingExtent // width and height of used image
+                extent: this.imageExtent // width and height of used image
             });
 
 
@@ -631,6 +655,7 @@ define([
             });
 
             // For document size
+            this.baseImageLayer.documentExtent = [0, 0, 595, 842];
             this.baseImageLayer.documentResolutionFactor = 0;
 
             // Manipulate Interaction, taking account baseImage manipulation
@@ -715,8 +740,8 @@ define([
 
                 this.map.on('postcompose', function(event) {
                     if(self.shouldGrayOut) {
-                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.documentExtent[0], self.documentExtent[1]]),
-                            drawingTopRight = self.map.getPixelFromCoordinate([self.documentExtent[2], self.documentExtent[3]]);
+                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[0], self.baseImageLayer.documentExtent[1]]),
+                            drawingTopRight = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[2], self.baseImageLayer.documentExtent[3]]);
 
                         var ctx = event.context;
                         ctx.beginPath();
