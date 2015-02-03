@@ -410,25 +410,17 @@ ol.layer.Manipulation = function(opt_options) {
             referenceExtentCoordinate = map.getCoordinateFromPixel(referenceExtentPixel),
             diagonalExtentDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, handleExtentPixel) ),
             draggedDistance = Math.sqrt( ol.coordinate.squaredDistance(referenceExtentPixel, toPx) ),
-            documentResolutionFactor = draggedDistance / diagonalExtentDistance;
-
-            map.once("postcompose", function(evt){
-                var updatedReferenceExtentCoordinate = map.getCoordinateFromPixel(referenceExtentPixel),
-                    differenceReferenceCoordinate = [ updatedReferenceExtentCoordinate[0] - referenceExtentCoordinate[0], updatedReferenceExtentCoordinate[0] - referenceExtentCoordinate[0] ];
-
-                if(differenceReferenceCoordinate[0] || differenceReferenceCoordinate[1]) {
-                    var centerCoordinate = map.getView().getCenter();
-                    
-                    if(centerCoordinate) {
-                        updateCenterCoordinate = [centerCoordinate[0] - differenceReferenceCoordinate[0], centerCoordinate[1] - differenceReferenceCoordinate[1]];
-                        map.getView().setCenter(updateCenterCoordinate);
-
-                        console.log(centerCoordinate, updateCenterCoordinate);
-                    }
-                }
-            });
+            documentResolutionFactor = draggedDistance / diagonalExtentDistance,
+            resolutionBeforeHardScale = map.getView().getResolution();
 
             map.getView().setResolution(viewResolution / documentResolutionFactor.toFixed(2));
+
+            var resolutionAfterHardScale = map.getView().getResolution(),
+                resolutionDifference = resolutionBeforeHardScale - resolutionAfterHardScale;
+            
+            baseLayer.documentResolutionFactor += resolutionDifference;
+
+            //console.log("resolutionBeforeHardScale", resolutionBeforeHardScale, "resolutionAfterHardScale", resolutionAfterHardScale, "documentResolutionFactor", documentResolutionFactor);
     }
 
     this.olCoordToMathCoord_ = function(olCoordinate) {
