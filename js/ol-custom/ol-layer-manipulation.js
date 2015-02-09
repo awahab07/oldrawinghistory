@@ -228,14 +228,14 @@ ol.layer.Manipulation = function(opt_options) {
 
         // Determining directional resize coodinates taking in account the current rotation.
         var rotatedResizeHandleObjs = [
+            { handleCoordinate: [ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ], resizesX: false, resizesY: true, signXChange: 1, signYChange: 1},
             { handleCoordinate: selectBoxCoordinates[0][0], resizesX: true, resizesY: true, signXChange: 1, signYChange: 1},
             { handleCoordinate: [ ( selectBoxCoordinates[0][0][0] + selectBoxCoordinates[0][1][0] ) / 2, ( selectBoxCoordinates[0][0][1] + selectBoxCoordinates[0][1][1] ) / 2 ], resizesX: true, resizesY: false, signXChange: 1, signYChange: -1},
             { handleCoordinate: selectBoxCoordinates[0][1], resizesX: true, resizesY: true, signXChange: 1, signYChange: -1},
             { handleCoordinate: [ ( selectBoxCoordinates[0][1][0] + selectBoxCoordinates[0][5][0] ) / 2, ( selectBoxCoordinates[0][1][1] + selectBoxCoordinates[0][5][1] ) / 2 ], resizesX: false, resizesY: true, signXChange: 1, signYChange: -1},
             { handleCoordinate: selectBoxCoordinates[0][5], resizesX: true, resizesY: true, signXChange: -1, signYChange: -1},
             { handleCoordinate: [ ( selectBoxCoordinates[0][5][0] + selectBoxCoordinates[0][6][0] ) / 2, ( selectBoxCoordinates[0][5][1] + selectBoxCoordinates[0][6][1] ) / 2 ], resizesX: true, resizesY: false, signXChange: -1, signYChange: -1},
-            { handleCoordinate: selectBoxCoordinates[0][6], resizesX: true, resizesY: true, signXChange: -1, signYChange: 1},
-            { handleCoordinate: [ ( selectBoxCoordinates[0][6][0] + selectBoxCoordinates[0][0][0] ) / 2, ( selectBoxCoordinates[0][6][1] + selectBoxCoordinates[0][0][1] ) / 2 ], resizesX: false, resizesY: true, signXChange: 1, signYChange: 1}
+            { handleCoordinate: selectBoxCoordinates[0][6], resizesX: true, resizesY: true, signXChange: -1, signYChange: 1}
         ];
 
         // Assigning position reference coordinates
@@ -258,7 +258,7 @@ ol.layer.Manipulation = function(opt_options) {
                 rotatedCoordinate = handlePropertiesObject.handleCoordinate,
                 resizeHandleAngle = goog.math.angle(selectBoxExtentCenter[0], selectBoxExtentCenter[1], rotatedCoordinate[0], rotatedCoordinate[1]);
 
-            if( i== 0) {
+            if( i == 0) {
                 // Around 225 Degrees
                 if(resizeHandleAngle <= 247.5 && resizeHandleAngle > 202.4)
                     cursorStyleIndex = 0;
