@@ -158,6 +158,12 @@ function(declare, JsonRest, Memory){
                         width: 3
                     })
                 })];
+                styles['LineString'] = [new ol.style.Style({
+                    stroke: new ol.style.Stroke({
+                        color: 'green',
+                        width: 3
+                    })
+                })];
                 styles['MultiPolygon'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: 'yellow',
@@ -177,8 +183,13 @@ function(declare, JsonRest, Memory){
                     }),
                     image: image
                 })];
+                
                 return function(feature, resolution) {
-                    return styles[feature.getGeometry().getType()] || styles['default'];
+                    var style = styles[feature.getGeometry().getType()] || styles['default'];
+                    if(style.stroke) {
+                        style.stroke.width = resolution;
+                    }
+                    return style;
                 };
                 /* jshint +W069 */
             })();

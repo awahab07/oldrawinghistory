@@ -655,6 +655,7 @@ define([
             });
 
             // For document size
+            this.paperSizeInPixels = [8.5 * 72, 11 * 72]; // Letter Size
             this.baseImageLayer.documentExtent = [0, 0, 595, 842];
             this.baseImageLayer.documentResolutionFactor = 0;
 
@@ -678,7 +679,7 @@ define([
                 function(evt){
                     var feature = evt.featureCollection.getArray()[0];
                     this.activeLayer.featureModified(feature);
-                }, this); 
+                }, this);
 
 
             this.buildViewResolutions = function() {
