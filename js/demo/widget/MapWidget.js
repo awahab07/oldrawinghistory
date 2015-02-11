@@ -488,7 +488,12 @@ define([
             }
 
             this.zoomToDocumentExtent = function() {
-                this.mapView.fitExtent(this.baseImageLayer.documentExtent, this.map.getSize())
+                var mapSize = this.map.getSize(),
+                    mapSizeWithPadding = [mapSize[0] * 0.98, mapSize[1] * 0.98],
+                    fitViewportResolution = this.mapView.getResolutionForExtent(this.documentExtent, mapSizeWithPadding);
+                
+                this.mapView.setResolution(fitViewportResolution);
+                this.mapView.setCenter(ol.extent.getCenter(this.documentExtent));
             }
 
             this.paperWidthChanged = function(width) {
@@ -592,6 +597,10 @@ define([
             this.drawInteraction = new ol.interaction.DrawWithShapes({});
 
             this.exportCanvas = function(encoding) {
+                // Determining blocks of document that will be used iteratively to capture canvas image data
+                var resolutionToCaptureImageData = 1;
+
+                this.mapView.setResolution(resolutionToCaptureImageData);
 
                 this.map.once('postcompose', function(event) {
                     var pixelBottomLeft = this.map.getPixelFromCoordinate(ol.extent.getBottomLeft(this.baseImageLayer.documentExtent)),
@@ -645,6 +654,22 @@ define([
             });
 
 
+            // For document size
+            this.paperSizeInPixels = [8.5 * 72, 11 * 72]; // Letter Size
+            this.marginSizeInPixels = 0.5 * 72;
+            this.paperSizeWithoutMargins = [this.paperSizeInPixels[0] - this.marginSizeInPixels * 2, this.paperSizeInPixels[1] - this.marginSizeInPixels * 2];
+            this.imageToDocumentPixelRatio = [this.imageSize[0] / this.paperSizeWithoutMargins[0], this.imageSize[1] / this.paperSizeWithoutMargins[1]];
+            
+            if(this.imageToDocumentPixelRatio[0] >= this.imageToDocumentPixelRatio[1]) {
+                this.marginInImagePixels = this.marginSizeInPixels * this.imageToDocumentPixelRatio[0];
+                var bottomPadding = ( this.paperSizeInPixels[1] * this.imageToDocumentPixelRatio[0] - this.imageSize[1] ) / 2;
+                this.documentExtent = [-1 * this.marginInImagePixels, -1 * bottomPadding, this.imageSize[0] + this.marginInImagePixels, this.imageSize[1] + bottomPadding];
+            } else {
+                this.marginInImagePixels = this.marginSizeInPixels * this.imageToDocumentPixelRatio[1];
+                var leftPadding = ( this.paperSizeInPixels[0] * this.imageToDocumentPixelRatio[1] - this.imageSize[0] ) / 2;
+                this.documentExtent = [-1 * leftPadding, -1 * this.marginInImagePixels, this.imageSize[0] + leftPadding, this.imageSize[1] + this.marginInImagePixels];
+            }
+
             // Setting up base image layer
             this.baseImageLayer = new ol.layer.Image({
                 source: new ol.source.ImageStatic({
@@ -654,9 +679,7 @@ define([
                 })
             });
 
-            // For document size
-            this.paperSizeInPixels = [8.5 * 72, 11 * 72]; // Letter Size
-            this.baseImageLayer.documentExtent = [0, 0, 595, 842];
+            this.baseImageLayer.documentExtent = this.documentExtent;
             this.baseImageLayer.documentResolutionFactor = 0;
 
             // Manipulate Interaction, taking account baseImage manipulation
@@ -683,7 +706,7 @@ define([
 
 
             this.buildViewResolutions = function() {
-                return [100, 50, 25, 10, 5, 4, 2, 1, 0.5, 0.25, 0.125, 0.1];
+                return [100, 75, 50, 37.5, 25, 17.5, 10, 7.5, 5, 4, 2, 1.5, 1, 0.75, 0.625, 0.5, 0.25, 0.125, 0.1];
             }
 
             // Setting up map view based on pixel project and image size
@@ -741,33 +764,32 @@ define([
 
                 this.map.on('postcompose', function(event) {
                     if(self.shouldGrayOut) {
+                        // Graying out area outside document extent while leaving 1px room for border rectangle
                         var drawingBottomLeft = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[0], self.baseImageLayer.documentExtent[1]]),
                             drawingTopRight = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[2], self.baseImageLayer.documentExtent[3]]);
 
-                        var ctx = event.context;
+                        var ctx = event.context,
+                            currentGlobalCompositeOperation = ctx.globalCompositeOperation;
+
+                        ctx.globalCompositeOperation = "destination-over";
+
                         ctx.beginPath();
                         ctx.strokeStyle = "grey";
-                        ctx.lineWidth = 2;
-                        ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], drawingTopRight[0]-drawingBottomLeft[0], drawingTopRight[1]-drawingBottomLeft[1]);
+                        ctx.lineWidth = 1;
+                        ctx.rect(drawingBottomLeft[0] - 1, drawingBottomLeft[1] - 1, drawingTopRight[0] - drawingBottomLeft[0] + 1, drawingTopRight[1] - drawingBottomLeft[1] + 1);
                         ctx.stroke();
 
                         ctx.beginPath();
-                        //ctx.moveTo(drawingBottomLeft[0], drawingBottomLeft[1]);
-                        //ctx.lineTo(drawingBottomLeft[0], drawingTopRight[1]);
-                        //ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], this.imageSize[0]+this.marginRight, this.imageSize[1]+this.marginTop);
-                        //ctx.rect(drawingBottomLeft[0]-100, drawingBottomLeft[1]-100, this.imageSize[0]+this.marginRight+100, this.imageSize[1]+this.marginTop+100);
+
                         ctx.rect(0, 0, drawingBottomLeft[0], 100000);
                         ctx.rect(0, 0, 100000, drawingTopRight[1] );
                         ctx.rect(drawingTopRight[0], 0, 100000, 100000 );
                         ctx.rect(0, drawingBottomLeft[1], 100000, 100000 );
-                        /*ctx.rect(drawingBottomLeft[0], drawingBottomLeft[1], drawingTopRight[0]-drawingBottomLeft[0], drawingTopRight[1]-drawingBottomLeft[1]);
-                         ctx.rect(1000, 0, -1000, 1000);*/
+
                         ctx.fillStyle = "#EEE";
                         ctx.fill();
-                        //ctx.stroke();
-                        /*var canvas = event.context.canvas;
-                         event.context.fillStyle = "grey";
-                         event.context.fillRect(0, 0, 400, 400);*/
+
+                        ctx.globalCompositeOperation = currentGlobalCompositeOperation;
                     }
                 }, this);
                 this.map.renderSync();

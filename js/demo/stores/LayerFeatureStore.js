@@ -186,8 +186,9 @@ function(declare, JsonRest, Memory){
                 
                 return function(feature, resolution) {
                     var style = styles[feature.getGeometry().getType()] || styles['default'];
-                    if(style.stroke) {
-                        style.stroke.width = resolution;
+                    if(style[0].stroke) {
+                        style[0].stroke.width = 1 / resolution * 1 / resolution;
+                        console.log(1 / resolution * 1 / resolution);
                     }
                     return style;
                 };
