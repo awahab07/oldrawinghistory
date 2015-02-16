@@ -598,9 +598,70 @@ define([
 
             this.exportCanvas = function(encoding) {
                 // Determining blocks of document that will be used iteratively to capture canvas image data
-                var resolutionToCaptureImageData = 1;
+                var resolutionToCaptureImageData = 1,
+                    documentExtent = this.documentExtent,
+                    paperSizeInPixels = this.paperSizeInPixels,
+                    map = this.map,
+                    mapView = this.mapView,
+                    currentResolution = mapView.getResolution(),
+                    mapSize = map.getSize(),
+                    documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
+                    documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
+                    documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
+                    resolutionForOutputPaperSize = 1 / ( currentResolution / documentWidthPixels * paperSizeInPixels[0] );
 
-                this.mapView.setResolution(resolutionToCaptureImageData);
+                mapView.setResolution(resolutionForOutputPaperSize);
+                map.renderSync();
+
+                var documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
+                    documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
+                    documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
+                    documentHeightPixels = Math.abs(documentTopRightPixels[1] - documentBottomLeftPixels[1]),
+                    widthPieces = Math.ceil( documentWidthPixels / mapSize[0] ),
+                    widthPieceCoordinateDistance = ol.extent.getWidth(documentExtent),
+                    heightPieces = Math.ceil( documentHeightPixels / mapSize[1] ),
+                    heightPieceCoordinateDistance = ol.extent.getHeight(documentExtent),
+                    i, j;
+
+
+                for(i=0; i<widthPieces; i++) {
+                    for(j=0; j<heightPieces; j++) {
+                        var pieceExtent = [ documentExtent[0] + i * widthPieceCoordinateDistance, documentExtent[0] + j * heightPieceCoordinateDistance,
+                                            documentExtent[0] + (i + 1) * widthPieceCoordinateDistance, documentExtent[0] + (j + 1) * heightPieceCoordinateDistance ];
+
+                        mapView.setCenter(ol.extent.getCenter(pieceExtent));
+
+                        var extentPolygonCoords = [[
+                                ol.extent.getBottomLeft(pieceExtent), ol.extent.getTopLeft(pieceExtent), ol.extent.getTopRight(pieceExtent), ol.extent.getBottomRight(pieceExtent), ol.extent.getBottomLeft(pieceExtent)
+                            ]],
+                            extentFeature = new ol.Feature({geometry: new ol.geom.Polygon(extentPolygonCoords)});
+
+                        this.activeLayer.getSource().addFeature(extentFeature);
+
+                        map.renderSync();
+                        
+                        var topLeftPixel = map.getPixelFromCoordinate(ol.extent.getTopLeft(pieceExtent)),
+                            bottomRightPixel = map.getPixelFromCoordinate(ol.extent.getBottomRight(pieceExtent));
+
+                        map.renderSync();
+
+                        map.once("postcompose", function(evt){
+                            evt.context.beginPath();
+                            evt.context.rect(topLeftPixel[0], topLeftPixel[1], topLeftPixel[0], bottomRightPixel[0], bottomRightPixel[1]);
+                            evt.context.stroke();
+                        }, this);
+
+                        map.renderSync();
+
+                    }
+                }
+
+                return;
+
+                    mapMinDimension = mapSize[0] < mapSize[1] ? mapSize[0] : mapSize[1],
+                    documentMaxDimension = this.paperSizeInPixels[0] < this.paperSizeInPixels[1] ? this.paperSizeInPixels[0] : this.paperSizeInPixels[1],
+                    nExportBlocks = Math.ceil(documentMaxDimension / mapMinDimension);
+
 
                 this.map.once('postcompose', function(event) {
                     var pixelBottomLeft = this.map.getPixelFromCoordinate(ol.extent.getBottomLeft(this.baseImageLayer.documentExtent)),
@@ -655,8 +716,9 @@ define([
 
 
             // For document size
-            this.paperSizeInPixels = [8.5 * 72, 11 * 72]; // Letter Size
-            this.marginSizeInPixels = 0.5 * 72;
+            this.paperDpi = 72;
+            this.paperSizeInPixels = [8.5 * this.paperDpi, 11 * this.paperDpi]; // Letter Size
+            this.marginSizeInPixels = 0.5 * this.paperDpi;
             this.paperSizeWithoutMargins = [this.paperSizeInPixels[0] - this.marginSizeInPixels * 2, this.paperSizeInPixels[1] - this.marginSizeInPixels * 2];
             this.imageToDocumentPixelRatio = [this.imageSize[0] / this.paperSizeWithoutMargins[0], this.imageSize[1] / this.paperSizeWithoutMargins[1]];
             
