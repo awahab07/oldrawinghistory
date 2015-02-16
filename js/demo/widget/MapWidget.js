@@ -488,12 +488,33 @@ define([
             }
 
             this.zoomToDocumentExtent = function() {
-                var mapSize = this.map.getSize(),
+                var map = this.map,
+                    documentExtent = this.documentExtent,
+                    mapSize = map.getSize(),
                     mapSizeWithPadding = [mapSize[0] * 0.98, mapSize[1] * 0.98],
-                    fitViewportResolution = this.mapView.getResolutionForExtent(this.documentExtent, mapSizeWithPadding);
-                
-                this.mapView.setResolution(fitViewportResolution);
-                this.mapView.setCenter(ol.extent.getCenter(this.documentExtent));
+                    fitViewportResolution = map.getView().getResolutionForExtent(documentExtent, mapSizeWithPadding),
+                    currentResolution = map.getView().getResolution(),
+                    perResolutionChange = Math.abs( (fitViewportResolution - currentResolution) / currentResolution),
+                    fitViewportCenter = ol.extent.getCenter(documentExtent),
+                    currentCenter = map.getView().getCenter(),
+                    perPositionChange = Math.abs((((fitViewportCenter[0] - currentCenter[0]) / currentCenter[0]) + ((fitViewportCenter[1] - currentCenter[1]) / currentCenter[1])) / 2);
+
+                // Applying pan animation
+                map.beforeRender(ol.animation.pan({
+                    source: currentCenter,
+                    duration: perResolutionChange >= perPositionChange ? 100 : 200,
+                    easing: ol.easing.linear
+                }));
+
+                // Applying zoom animation
+                map.beforeRender(ol.animation.zoom({
+                    resolution: currentResolution,
+                    duration: perResolutionChange >= perPositionChange ? 200 : 100,
+                    easing: ol.easing.easeOut
+                }));
+
+                map.getView().setResolution(fitViewportResolution);
+                map.getView().setCenter(fitViewportCenter);
             }
 
             this.paperWidthChanged = function(width) {
@@ -598,8 +619,7 @@ define([
 
             this.exportCanvas = function(encoding) {
                 // Determining blocks of document that will be used iteratively to capture canvas image data
-                var resolutionToCaptureImageData = 1,
-                    documentExtent = this.documentExtent,
+                var documentExtent = this.documentExtent,
                     paperSizeInPixels = this.paperSizeInPixels,
                     map = this.map,
                     mapView = this.mapView,
@@ -608,83 +628,68 @@ define([
                     documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
                     documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
                     documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
-                    resolutionForOutputPaperSize = 1 / ( currentResolution / documentWidthPixels * paperSizeInPixels[0] );
+                    resolutionForOutputPaperSize = currentResolution * documentWidthPixels / paperSizeInPixels[0];
 
                 mapView.setResolution(resolutionForOutputPaperSize);
                 map.renderSync();
+                
+                // Registering event to export the canvas data to hidden canvas after appropriate resolution has been set for desired paper size
+                map.once("postcompose", function(evt){
+                    var documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
+                        documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
+                        documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
+                        documentHeightPixels = Math.abs(documentTopRightPixels[1] - documentBottomLeftPixels[1]),
+                        widthPieces = Math.ceil( documentWidthPixels / mapSize[0] ),
+                        widthPieceCoordinateDistance = ol.extent.getWidth(documentExtent) / widthPieces,
+                        widthPiecePixelDistance = documentWidthPixels / widthPieces,
+                        heightPieces = Math.ceil( documentHeightPixels / mapSize[1] ),
+                        heightPieceCoordinateDistance = ol.extent.getHeight(documentExtent) / heightPieces,
+                        heightPiecePixelDistance = documentHeightPixels / heightPieces,
+                        i, j;
 
-                var documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
-                    documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
-                    documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
-                    documentHeightPixels = Math.abs(documentTopRightPixels[1] - documentBottomLeftPixels[1]),
-                    widthPieces = Math.ceil( documentWidthPixels / mapSize[0] ),
-                    widthPieceCoordinateDistance = ol.extent.getWidth(documentExtent),
-                    heightPieces = Math.ceil( documentHeightPixels / mapSize[1] ),
-                    heightPieceCoordinateDistance = ol.extent.getHeight(documentExtent),
-                    i, j;
-
-
-                for(i=0; i<widthPieces; i++) {
-                    for(j=0; j<heightPieces; j++) {
-                        var pieceExtent = [ documentExtent[0] + i * widthPieceCoordinateDistance, documentExtent[0] + j * heightPieceCoordinateDistance,
-                                            documentExtent[0] + (i + 1) * widthPieceCoordinateDistance, documentExtent[0] + (j + 1) * heightPieceCoordinateDistance ];
-
-                        mapView.setCenter(ol.extent.getCenter(pieceExtent));
-
-                        var extentPolygonCoords = [[
-                                ol.extent.getBottomLeft(pieceExtent), ol.extent.getTopLeft(pieceExtent), ol.extent.getTopRight(pieceExtent), ol.extent.getBottomRight(pieceExtent), ol.extent.getBottomLeft(pieceExtent)
-                            ]],
-                            extentFeature = new ol.Feature({geometry: new ol.geom.Polygon(extentPolygonCoords)});
-
-                        this.activeLayer.getSource().addFeature(extentFeature);
-
-                        map.renderSync();
-                        
-                        var topLeftPixel = map.getPixelFromCoordinate(ol.extent.getTopLeft(pieceExtent)),
-                            bottomRightPixel = map.getPixelFromCoordinate(ol.extent.getBottomRight(pieceExtent));
-
-                        map.renderSync();
-
-                        map.once("postcompose", function(evt){
-                            evt.context.beginPath();
-                            evt.context.rect(topLeftPixel[0], topLeftPixel[1], topLeftPixel[0], bottomRightPixel[0], bottomRightPixel[1]);
-                            evt.context.stroke();
-                        }, this);
-
-                        map.renderSync();
-
-                    }
-                }
-
-                return;
-
-                    mapMinDimension = mapSize[0] < mapSize[1] ? mapSize[0] : mapSize[1],
-                    documentMaxDimension = this.paperSizeInPixels[0] < this.paperSizeInPixels[1] ? this.paperSizeInPixels[0] : this.paperSizeInPixels[1],
-                    nExportBlocks = Math.ceil(documentMaxDimension / mapMinDimension);
-
-
-                this.map.once('postcompose', function(event) {
-                    var pixelBottomLeft = this.map.getPixelFromCoordinate(ol.extent.getBottomLeft(this.baseImageLayer.documentExtent)),
-                        pixelTopRight = this.map.getPixelFromCoordinate(ol.extent.getTopRight(this.baseImageLayer.documentExtent));
-                    
-                    var canvas = event.context.canvas;
-                    var documentImageData = event.context.getImageData(0, 0, 1000, 1000);//event.context.getImageData(pixelBottomLeft[0], pixelBottomLeft[1], pixelTopRight[0], pixelTopRight[1]);
-                    
                     var hiddenCanvas = document.getElementById("hiddenExportCanvasId");
-                    hiddenCanvas.style.width = '1000px'; //this.baseImageLayer.documentExtent[2] + "px";
-                    hiddenCanvas.style.height = '1000px'; //this.baseImageLayer.documentExtent[3] + "px";
-                    
-                    var hiddenContext = hiddenCanvas.getContext("2d");
-                    hiddenContext.putImageData(documentImageData, 0, 0);
-                    
+                        hiddenCanvas.style.width = documentWidthPixels + 'px'; //this.baseImageLayer.documentExtent[2] + "px";
+                        hiddenCanvas.style.height = documentHeightPixels + 'px'; //this.baseImageLayer.documentExtent[3] + "px";
+                        
+                    var mapContext = evt.context,
+                        hiddenContext = hiddenCanvas.getContext("2d");
+
+                    // Captures from bottom left to top right
+                    for(i=0; i<widthPieces; i++) {
+                        for(j=0; j<heightPieces; j++) {
+                            var pieceExtent = [ documentExtent[0] + i * widthPieceCoordinateDistance, documentExtent[1] + j * heightPieceCoordinateDistance,
+                                                documentExtent[0] + ( (i + 1) * widthPieceCoordinateDistance ), documentExtent[1] + ( (j + 1) * heightPieceCoordinateDistance ) ];
+
+                            mapView.setCenter(ol.extent.getCenter(pieceExtent));
+
+                            map.renderSync();
+                            
+                            var topLeftPixel = map.getPixelFromCoordinate(ol.extent.getTopLeft(pieceExtent)),
+                                pieceImageData = mapContext.getImageData(topLeftPixel[0], topLeftPixel[1], widthPiecePixelDistance, heightPiecePixelDistance);
+                            
+                            hiddenContext.putImageData(pieceImageData, 0, 0);
+
+                            /*map.on("postcompose", function(evt){
+                                evt.context.beginPath();
+                                evt.context.rect(topLeftPixel[0], topLeftPixel[1], widthPiecePixelDistance, heightPiecePixelDistance);
+                                evt.context.stroke();
+                                evt.context.fillStyle = 'rgba(255, 150, 20, 0.4)';
+                                evt.context.fill();
+                            }, this);*/
+
+                            map.renderSync();
+                        }
+                    }
+
                     this.exportLink.href = hiddenCanvas.toDataURL('image/png');
                     this.exportLink.click();
+                    //this.zoomToDocumentExtent();
 
-
-                    /*this.exportLink.href = canvas.toDataURL(encoding || 'image/png');
-                    this.exportLink.click();*/
                 }, this);
-                this.map.renderSync();
+                
+                // Triggers the above "postcompose" event
+                
+                return;
             }
 
             this.selectInteraction.on("movestart",
