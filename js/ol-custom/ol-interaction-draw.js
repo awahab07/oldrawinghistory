@@ -8,6 +8,7 @@ goog.provide('ol.interaction.ShapeType');
 
 goog.require('ol.DrawEvent');
 goog.require('ol.interaction.Draw');
+goog.require('goog.math.angle');
 
 /**
  * Draw mode with shpes. This collapses multi-part geometry types with their single-part
@@ -62,18 +63,23 @@ ol.interaction.ShapeManager = function(drawInteraction) {
                     startY = coordinates[0][0][1],
                     endX = coordinates[0][coordinates[0].length-1][0],
                     endY = coordinates[0][coordinates[0].length-1][1],
+                    mathEndPoint = new goog.math.Coordinate(endX, endY),
                     dx = startX - endX,
                     dy = startY - endY,
-                    distance = Math.sqrt(dx * dx + dy * dy) || 0;
+                    distance = Math.sqrt(dx * dx + dy * dy) || 0,
+                    angleDegrees = goog.math.angle(startX, startY, endX, endY) - 90;
 
-                var m = (y2-y1)/(x2-x1)+1, dividerX = 1/Math.sqrt(1+(m*m)), dividerY = m/Math.sqrt(1+(m*m));
-                var arrowWidth = 30;
-                var x3 = endX, y3 = endY, x2 = x3 - arrowWidth/3, y2 = endY + arrowWidth/3*dy/Math.abs(dy), x1 = x3 + arrowWidth/3;
-                var shapePolygonCoordinates = [[
-                    [x3, y3],
-                    [x2, y2],
-                    [x1, y2]
-                ]];
+                var arrowTipCoords = [[endX - 10, endY - 10], [endX, endY], [endX + 10, endY - 10], [endX, endY]];
+
+                arrowTipCoords = arrowTipCoords.map(function(coordinate) {
+                    var mathCoordinate = new goog.math.Coordinate(coordinate[0], coordinate[1]);
+                    mathCoordinate.rotateDegrees(angleDegrees, mathEndPoint);
+                    return [mathCoordinate.x, mathCoordinate.y];
+                });
+
+                var shapePolygonCoordinates = [ [startX, startY], [endX, endY] ];
+
+                shapePolygonCoordinates = [ shapePolygonCoordinates.concat(arrowTipCoords) ];
 
                 return shapePolygonCoordinates;
             break;
@@ -139,7 +145,11 @@ ol.interaction.DrawWithShapes = function(options) {
     this.activateShapeDrawingOnLayer = function(shapeType, drawingLayer) {
         if(goog.isDef(ol.interaction.ShapeType[shapeType.toUpperCase()])) {
             this.shapeType_ = shapeType;
-            this.type_ = "Polygon";
+            if(this.shapeType_ == ol.interaction.ShapeType.LINEARROW) {
+                this.type_ = "LineString";
+            } else {
+                this.type_ = "Polygon";
+            }
         } else {
             this.shapeType_ = null;
             this.type_ = shapeType;

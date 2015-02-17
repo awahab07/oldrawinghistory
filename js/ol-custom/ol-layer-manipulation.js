@@ -496,6 +496,7 @@ ol.layer.Manipulation = function(opt_options) {
      * @return {Array<ol.Coordinate>}          A two dimensional array of coordinates
      */
     this.grabCoordinatesArrayFromGeometry_ = function(geometry) {
+        // @TODO account for "multi" geometries
         var coordinates = geometry.getCoordinates();
         if(goog.isDef(coordinates[0][0])) {
             if(goog.isDef(coordinates[0][0][0])) {

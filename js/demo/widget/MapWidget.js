@@ -483,6 +483,10 @@ define([
                 this.drawInteraction.activateShapeDrawingOnLayer("Arrow", this.activeLayer);
             }
 
+            this.activateLineArrowDrawing = function() {
+                this.drawInteraction.activateShapeDrawingOnLayer("LineArrow", this.activeLayer);
+            }
+
             this.activatePolygonDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
             }
@@ -632,28 +636,34 @@ define([
 
                 mapView.setResolution(resolutionForOutputPaperSize);
                 map.renderSync();
-                
-                // Registering event to export the canvas data to hidden canvas after appropriate resolution has been set for desired paper size
-                map.once("postcompose", function(evt){
-                    var documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
-                        documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
-                        documentWidthPixels = Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0]),
-                        documentHeightPixels = Math.abs(documentTopRightPixels[1] - documentBottomLeftPixels[1]),
-                        widthPieces = Math.ceil( documentWidthPixels / mapSize[0] ),
-                        widthPieceCoordinateDistance = ol.extent.getWidth(documentExtent) / widthPieces,
-                        widthPiecePixelDistance = documentWidthPixels / widthPieces,
-                        heightPieces = Math.ceil( documentHeightPixels / mapSize[1] ),
-                        heightPieceCoordinateDistance = ol.extent.getHeight(documentExtent) / heightPieces,
-                        heightPiecePixelDistance = documentHeightPixels / heightPieces,
-                        i, j;
 
-                    var hiddenCanvas = document.getElementById("hiddenExportCanvasId");
-                        hiddenCanvas.style.width = documentWidthPixels + 'px'; //this.baseImageLayer.documentExtent[2] + "px";
-                        hiddenCanvas.style.height = documentHeightPixels + 'px'; //this.baseImageLayer.documentExtent[3] + "px";
-                        
-                    var mapContext = evt.context,
-                        hiddenContext = hiddenCanvas.getContext("2d");
+                var documentBottomLeftPixels = map.getPixelFromCoordinate(ol.extent.getBottomLeft(documentExtent)),
+                    documentTopRightPixels = map.getPixelFromCoordinate(ol.extent.getTopRight(documentExtent)),
+                    documentWidthPixels = Math.round(Math.abs(documentTopRightPixels[0] - documentBottomLeftPixels[0])),
+                    documentHeightPixels = Math.round(Math.abs(documentTopRightPixels[1] - documentBottomLeftPixels[1])),
+                    widthPieces = Math.ceil( documentWidthPixels / mapSize[0] ),
+                    widthPieceCoordinateDistance = ol.extent.getWidth(documentExtent) / widthPieces,
+                    widthPiecePixelDistance = documentWidthPixels / widthPieces,
+                    heightPieces = Math.ceil( documentHeightPixels / mapSize[1] ),
+                    heightPieceCoordinateDistance = ol.extent.getHeight(documentExtent) / heightPieces,
+                    heightPiecePixelDistance = documentHeightPixels / heightPieces,
+                    i, j;
 
+                var hiddenCanvas = document.getElementById("hiddenExportCanvasId");
+                hiddenCanvas.style.width = documentWidthPixels + 'px'; //this.baseImageLayer.documentExtent[2] + "px";
+                hiddenCanvas.style.height = documentHeightPixels + 'px'; //this.baseImageLayer.documentExtent[3] + "px";
+                hiddenCanvas.width = documentWidthPixels;
+                hiddenCanvas.height = documentHeightPixels;
+
+                    
+                var mapContext = map.getRenderer().context_,
+                    hiddenContext = hiddenCanvas.getContext("2d");
+
+                // Painting white background to export canvas
+                hiddenContext.fillStyle = 'white';
+                hiddenContext.fillRect(0, 0, documentWidthPixels, documentHeightPixels);
+
+                if(mapContext) {
                     // Captures from bottom left to top right
                     for(i=0; i<widthPieces; i++) {
                         for(j=0; j<heightPieces; j++) {
@@ -666,16 +676,8 @@ define([
                             
                             var topLeftPixel = map.getPixelFromCoordinate(ol.extent.getTopLeft(pieceExtent)),
                                 pieceImageData = mapContext.getImageData(topLeftPixel[0], topLeftPixel[1], widthPiecePixelDistance, heightPiecePixelDistance);
-                            
-                            hiddenContext.putImageData(pieceImageData, 0, 0);
 
-                            /*map.on("postcompose", function(evt){
-                                evt.context.beginPath();
-                                evt.context.rect(topLeftPixel[0], topLeftPixel[1], widthPiecePixelDistance, heightPiecePixelDistance);
-                                evt.context.stroke();
-                                evt.context.fillStyle = 'rgba(255, 150, 20, 0.4)';
-                                evt.context.fill();
-                            }, this);*/
+                            hiddenContext.putImageData(pieceImageData, i * widthPiecePixelDistance, (heightPieces-j-1) * heightPiecePixelDistance);
 
                             map.renderSync();
                         }
@@ -683,11 +685,10 @@ define([
 
                     this.exportLink.href = hiddenCanvas.toDataURL('image/png');
                     this.exportLink.click();
-                    //this.zoomToDocumentExtent();
-
-                }, this);
-                
-                // Triggers the above "postcompose" event
+                    this.zoomToDocumentExtent();
+                } else {
+                    // @TODO implement invalid renderer prompt
+                }
                 
                 return;
             }
@@ -830,20 +831,20 @@ define([
                 });
 
                 this.map.on('postcompose', function(event) {
+                    // Graying out area outside document extent while leaving 1px room for border rectangle
+                    var drawingBottomLeft = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[0], self.baseImageLayer.documentExtent[1]]),
+                        drawingTopRight = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[2], self.baseImageLayer.documentExtent[3]]);
+
+                    var ctx = event.context,
+                        currentGlobalCompositeOperation = ctx.globalCompositeOperation;
+
+                    ctx.globalCompositeOperation = "destination-over";
+
                     if(self.shouldGrayOut) {
-                        // Graying out area outside document extent while leaving 1px room for border rectangle
-                        var drawingBottomLeft = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[0], self.baseImageLayer.documentExtent[1]]),
-                            drawingTopRight = self.map.getPixelFromCoordinate([self.baseImageLayer.documentExtent[2], self.baseImageLayer.documentExtent[3]]);
-
-                        var ctx = event.context,
-                            currentGlobalCompositeOperation = ctx.globalCompositeOperation;
-
-                        ctx.globalCompositeOperation = "destination-over";
-
                         ctx.beginPath();
                         ctx.strokeStyle = "grey";
                         ctx.lineWidth = 1;
-                        ctx.rect(drawingBottomLeft[0] - 1, drawingBottomLeft[1] - 1, drawingTopRight[0] - drawingBottomLeft[0] + 1, drawingTopRight[1] - drawingBottomLeft[1] + 1);
+                        ctx.rect(drawingBottomLeft[0] - 1, drawingBottomLeft[1] + 1, drawingTopRight[0] - drawingBottomLeft[0] + 2, drawingTopRight[1] - drawingBottomLeft[1] - 2);
                         ctx.stroke();
 
                         ctx.beginPath();
@@ -855,9 +856,14 @@ define([
 
                         ctx.fillStyle = "#EEE";
                         ctx.fill();
-
-                        ctx.globalCompositeOperation = currentGlobalCompositeOperation;
                     }
+
+                    // Painting white background
+                    ctx.fillStyle = "white";
+                    ctx.fillRect(drawingBottomLeft[0] - 1, drawingTopRight[1] - 1, drawingTopRight[0] - drawingBottomLeft[0], drawingBottomLeft[1] - drawingTopRight[1]);
+
+                    ctx.globalCompositeOperation = currentGlobalCompositeOperation;
+
                 }, this);
                 this.map.renderSync();
             }

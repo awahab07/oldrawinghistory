@@ -25,10 +25,10 @@ function(declare, JsonRest, Memory){
                         },
                         style:{
                             fill: {
-                                color: "rgba(220, 150, 30)"
+                                color: "rgba(220, 150, 30, 1)"
                             },
                             stroke: {
-                                color: "rgba(150, 150, 30)",
+                                color: "rgba(150, 150, 30, 1)",
                                 width: 1
                             }
                         }
@@ -41,10 +41,10 @@ function(declare, JsonRest, Memory){
                         },
                         style:{
                             fill: {
-                                color: "rgba(220, 150, 30)"
+                                color: "rgba(220, 150, 30, 1)"
                             },
                             stroke: {
-                                color: "rgba(150, 150, 30)",
+                                color: "rgba(150, 150, 30, 1)",
                                 width: 1
                             }
                         }
@@ -57,11 +57,12 @@ function(declare, JsonRest, Memory){
                         },
                         style:{
                             fill: {
-                                color: "rgba(220, 150, 30)"
+                                color: "rgba(220, 150, 30, 1)"
                             },
                             stroke: {
-                                color: "rgba(150, 150, 30)",
-                                width: 1
+                                color: "rgba(200, 100, 30, 1)",
+                                width: 3,
+                                fixedWidth: false
                             }
                         }
                     }
@@ -92,12 +93,30 @@ function(declare, JsonRest, Memory){
                                 color: "rgba(250, 5, 5, 1)"
                             },
                             stroke: {
-                                color: "rgba(180, 50, 40, 08)",
-                                width: 2
+                                color: "rgba(255, 50, 40, 1)",
+                                width: 5,
+                                fixedWidth: true
                             }
                         },
                         rotation: 45
                     }
+                ]
+            },
+            {
+                id: 3,
+                title: "Layer 03",
+                visible: true,
+                style: {
+                    stroke: {
+                        color: 'rgba(150, 200, 20, 1)',
+                        width: 4,
+                        lineDash: 10
+                    },
+                    fill: {
+                        color: 'rgba(250, 10, 60, 0.9)'
+                    }
+                },
+                features: [
                 ]
             }
         ],
@@ -119,18 +138,52 @@ function(declare, JsonRest, Memory){
         },
 
         getLayerOLSource: function(layer) {
-            var source = new ol.source.Vector(),
+            var self = this,
+                source = new ol.source.Vector(),
                 reader = new ol.format.GeoJSON();
+            
             layer.features.forEach(function(rawFeature) {
                 var feature = reader.readFeature({type: rawFeature.type, geometry: rawFeature.geometry});
-                //@ TODO account for custom styles
                 
+                //@ TODO account for custom styles
+                feature.setStyle(self.getFeatureStyleFunction(rawFeature));
+
                 // Application specific properties
                 feature.set('rotation', rawFeature.rotation || 0);
 
                 source.addFeature(feature);
             });
             return source;
+        },
+
+        getFeatureStyleFunction: function(rawFeature) {
+            var featureStyleFunction = (function(){
+                var image = new ol.style.Circle({
+                    radius: 5,
+                    fill: null,
+                    stroke: new ol.style.Stroke({color: 'orange', width: 2})
+                });
+                
+                return function(resolution) {
+                    var styleResolution = resolution || 1,
+                        featureStyle = [
+                        new ol.style.Style({
+                            stroke: new ol.style.Stroke({
+                                color: rawFeature.style && rawFeature.style.stroke && rawFeature.style.stroke.color || 'red',
+                                width: rawFeature.style && rawFeature.style.stroke && rawFeature.style.stroke.width ? (rawFeature.style.stroke.fixedWidth ?  rawFeature.style.stroke.width / styleResolution : rawFeature.style.stroke.width) : 2 / styleResolution
+                            }),
+                            fill: new ol.style.Fill({
+                                color: rawFeature.style && rawFeature.style.fill && rawFeature.style.fill.color || 'rgba(255, 0, 0, 0.1)'
+                            }),
+                            image: image
+                        })
+                    ];
+console.log("resolution, styleResolution", resolution, styleResolution);
+                    return featureStyle;
+                }
+            })();
+
+            return featureStyleFunction;
         },
 
         getLayerStyleFunction: function(layer) {
@@ -146,7 +199,8 @@ function(declare, JsonRest, Memory){
                 styles['Polygon'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: layer.style && layer.style.stroke && layer.style.stroke.color || 'blue',
-                        width: layer.style && layer.style.stroke && layer.style.stroke.width ||  3
+                        width: layer.style && layer.style.stroke && layer.style.stroke.width ||  3,
+                        lineDash: layer.style && layer.style.stroke && layer.style.stroke.lineDash ||  null
                     }),
                     fill: new ol.style.Fill({
                         color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(0, 0, 255, 0.1)'
@@ -155,19 +209,22 @@ function(declare, JsonRest, Memory){
                 styles['MultiLinestring'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: 'green',
-                        width: 3
+                        width: 3,
+                        lineDash: layer.style && layer.style.stroke && layer.style.stroke.lineDash ||  null
                     })
                 })];
                 styles['LineString'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: 'green',
-                        width: 3
+                        width: 3,
+                        lineDash: layer.style && layer.style.stroke && layer.style.stroke.lineDash ||  null
                     })
                 })];
                 styles['MultiPolygon'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: 'yellow',
-                        width: 1
+                        width: 1,
+                        lineDash: layer.style && layer.style.stroke && layer.style.stroke.lineDash ||  null
                     }),
                     fill: new ol.style.Fill({
                         color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 255, 0, 0.1)'
@@ -176,7 +233,8 @@ function(declare, JsonRest, Memory){
                 styles['default'] = [new ol.style.Style({
                     stroke: new ol.style.Stroke({
                         color: layer.style && layer.style.stroke && layer.style.stroke.color || 'red',
-                        width: layer.style && layer.style.stroke && layer.style.stroke.width || 3
+                        width: layer.style && layer.style.stroke && layer.style.stroke.width || 3,
+                        lineDash: layer.style && layer.style.stroke && layer.style.stroke.lineDash ||  null
                     }),
                     fill: new ol.style.Fill({
                         color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 0, 0, 0.1)'
@@ -194,7 +252,31 @@ function(declare, JsonRest, Memory){
                 };
                 /* jshint +W069 */
             })();
-            return styleFunction;
+
+            var styleStoreFunction = (function(){
+                var image = new ol.style.Circle({
+                    radius: 5,
+                    fill: null,
+                    stroke: new ol.style.Stroke({color: 'orange', width: 2})
+                });
+                
+                return function(feature, resolution) {console.log(feature, resolution);
+                    return [
+                        new ol.style.Style({
+                            stroke: new ol.style.Stroke({
+                                color: layer.style && layer.style.stroke && layer.style.stroke.color || 'red',
+                                width: layer.style && layer.style.stroke && layer.style.stroke.width || 3
+                            }),
+                            fill: new ol.style.Fill({
+                                color: layer.style && layer.style.fill && layer.style.fill.color || 'rgba(255, 0, 0, 0.1)'
+                            }),
+                            image: image
+                        })
+                    ];
+                }
+            })();
+
+            return styleStoreFunction;
         }
 	})
 });
