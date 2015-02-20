@@ -110,7 +110,7 @@ function(declare, JsonRest, Memory){
                     stroke: {
                         color: 'rgba(150, 200, 20, 1)',
                         width: 4,
-                        lineDash: 10
+                        lineDash: [10]
                     },
                     fill: {
                         color: 'rgba(250, 10, 60, 0.9)'

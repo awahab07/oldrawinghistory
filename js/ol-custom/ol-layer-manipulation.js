@@ -200,7 +200,7 @@ ol.layer.Manipulation = function(opt_options) {
 		var resizeHandlePoint = new ol.geom.Point(coordinate, ol.geom.GeometryLayout.XY),
 			resizeHandleFeature = new ol.Feature({geometry: resizeHandlePoint});
 		
-		resizeHandleFeature.setStyle(this.handlesStyle_);
+        resizeHandleFeature.setStyle(this.handlesStyle_);
 
 		resizeHandleFeature.isHandleFeature = true;  // Indication that feature is a manipulation handle
 		resizeHandleFeature.handleType = ol.ManipulationFeatureType.RESIZEHANDLE;
