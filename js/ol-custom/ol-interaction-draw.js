@@ -86,8 +86,13 @@ ol.interaction.DrawWithShapes = function(options) {
         }
     }
 
-    this.addCreatedFeatureToDrawingLayer_ = function(createdFeature) {
+    this.addCreatedFeatureToDrawingLayer_ = function(createdFeature, drawingCoordinates) {
         this.layerToDrawOn_.getSource().addFeature(createdFeature);
+
+        // Calling shape's after newly drawn feature hook if present, used to set initial properties necessary to preserve behavior e.g. rotation
+        if(createdFeature.drawingCompleted) {
+            createdFeature.drawingCompleted(createdFeature, drawingCoordinates);
+        }
     }
 
     /**
@@ -134,7 +139,7 @@ ol.interaction.DrawWithShapes = function(options) {
                 // Finish Drawing
                 var sketchFeature = this.abortDrawing_();
                 if(!goog.isNull(sketchFeature)) {
-                    this.addCreatedFeatureToDrawingLayer_(sketchFeature);
+                    this.addCreatedFeatureToDrawingLayer_(sketchFeature, [[this.downCoordinate_, event.coordinate]]);
                     
                     this.dispatchEvent(new ol.DrawEvent(ol.DrawEventType.DRAWEND, sketchFeature));
 

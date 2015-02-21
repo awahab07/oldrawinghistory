@@ -178,7 +178,6 @@ function(declare, JsonRest, Memory){
                             image: image
                         })
                     ];
-console.log("resolution, styleResolution", resolution, styleResolution);
                     return featureStyle;
                 }
             })();
@@ -260,7 +259,7 @@ console.log("resolution, styleResolution", resolution, styleResolution);
                     stroke: new ol.style.Stroke({color: 'orange', width: 2})
                 });
                 
-                return function(feature, resolution) {console.log(feature, resolution);
+                return function(feature, resolution) {
                     return [
                         new ol.style.Style({
                             stroke: new ol.style.Stroke({

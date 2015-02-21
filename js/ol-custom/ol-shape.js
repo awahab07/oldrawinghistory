@@ -9,6 +9,7 @@
 goog.provide('ol.shape.ShapeType');
 goog.provide('ol.shape.ShapeClass');
 goog.provide('ol.shape.ShapeBaseGeomTypes');
+goog.provide('ol.shape.ShapeAttributes');
 goog.provide('ol.shape.ShapeFeature');
 goog.provide('ol.shape.Arrow');
 goog.provide('ol.shape.LineArrow');
@@ -31,14 +32,26 @@ ol.shape.ShapeBaseGeomTypes = {
     LINEARROW: 'LineString'
 };
 
+/**
+ * List of shape features attributes necessary for application wide functionality
+ * @type {string enum object}
+ */
+ol.shape.ShapeAttributes = {
+	ROTATION: 'rotation',
+	ROTATIONCENTER: 'rotationCenter',
+	MANIPULATIONHANDLES: 'manipulationHandles'
+}
 
+/***** Base Shape Featuer *****/
 ol.shape.ShapeFeature = function(opt_geometryOrProperties) {
 	goog.base(this);
 
 	this.shapeType = null; // What is custom shape type: circle, rectangle, line, free line, text
 	this.baseShapeType = null; // The foundation base (ol.geom.?) shape type
 
-	this.rotation = 0;  // To preserve rotation
+	/** values for application specific needs **/
+	// rotationDegrees = 0;  // To preserve rotation
+	// rotationCenter;		 // Current rotation center
 }
 goog.inherits(ol.shape.ShapeFeature, ol.Feature);
 
@@ -70,14 +83,19 @@ ol.shape.ShapeFeature.prototype.getSketchPoint_ = goog.nullFunction;
  */
 ol.shape.ShapeFeature.prototype.createNewSketchFeature_ = goog.nullFunction;
 
+/**
+ * Can be called by drawing interaction to call necessary functionality when a new shape drawing is completed
+ * @type {[type]}
+ */
+ol.shape.ShapeFeature.prototype.drawingCompleted = goog.nullFunction;
 
 
-
+/***** Polygon Arrow Shape *****/
 ol.shape.Arrow = function(opt_geometryOrProperties) {
 	goog.base(this);
 
-	this.shapeType = ol.shape.ShapeType.ARROW;
-	this.baseShapeType = ol.geom.Polygon;
+	this.shapeType = ol.shape.ShapeType.LINEARROW;
+	this.baseShapeType = ol.geom.LineString;
 }
 goog.inherits(ol.shape.Arrow, ol.shape.ShapeFeature);
 
@@ -129,6 +147,66 @@ ol.shape.LineArrow = function(opt_geometryOrProperties) {
 	this.baseShapeType = ol.geom.LineString;
 }
 goog.inherits(ol.shape.LineArrow, ol.shape.ShapeFeature);
+
+
+/***** Line Arrow Shape *****/
+ol.shape.LineArrow = function(opt_geometryOrProperties) {
+	goog.base(this);
+
+	this.shapeType = ol.shape.ShapeType.LINEARROW;
+	this.baseShapeType = ol.geom.LineString;
+}
+goog.inherits(ol.shape.LineArrow, ol.shape.ShapeFeature);
+
+ol.shape.LineArrow.prototype.createSketchFeatureGeometry_ = function(coordinates) {
+	return new ol.geom.LineString(this.getUpdatedSketchFeatureCoordinates_(coordinates));
+}
+
+ol.shape.LineArrow.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
+	goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
+    var startX = coordinates[0][0][0],
+        startY = coordinates[0][0][1],
+        endX = coordinates[0][coordinates[0].length-1][0],
+        endY = coordinates[0][coordinates[0].length-1][1],
+        mathEndPoint = new goog.math.Coordinate(endX, endY),
+        dx = startX - endX,
+        dy = startY - endY,
+        distance = Math.sqrt(dx * dx + dy * dy) || 0,
+        angleDegrees = goog.math.angle(startX, startY, endX, endY) - 90;
+
+    var arrowTipCoords = [[endX - 10, endY - 10], [endX, endY], [endX + 10, endY - 10], [endX, endY]];
+
+    arrowTipCoords = arrowTipCoords.map(function(coordinate) {
+        var mathCoordinate = new goog.math.Coordinate(coordinate[0], coordinate[1]);
+        mathCoordinate.rotateDegrees(angleDegrees, mathEndPoint);
+        return [mathCoordinate.x, mathCoordinate.y];
+    });
+
+    var shapePolygonCoordinates = [ [startX, startY], [endX, endY] ];
+
+    shapePolygonCoordinates = shapePolygonCoordinates.concat(arrowTipCoords);
+
+    return shapePolygonCoordinates;
+}
+
+ol.shape.LineArrow.prototype.getSketchPoint_ = function(coordinate) {
+	return new ol.Feature(new ol.geom.Point(coordinate))
+}
+
+ol.shape.LineArrow.prototype.createNewSketchFeature_ = function() {
+	return new ol.shape.LineArrow();
+}
+
+ol.shape.LineArrow.prototype.drawingCompleted = function(createdFeatures, coordinates) {
+	var startX = coordinates[0][0][0],
+        startY = coordinates[0][0][1],
+        endX = coordinates[0][coordinates[0].length-1][0],
+        endY = coordinates[0][coordinates[0].length-1][1],
+        angleDegrees = goog.math.angle(startX, startY, endX, endY);
+	
+	createdFeatures.set('rotationDegrees', angleDegrees);
+	createdFeatures.set('rotationCenter', [startX, startY]);
+}
 
 
 /**
