@@ -48,8 +48,13 @@ ol.shape.ShapeFeature = function(opt_geometryOrProperties) {
 
 	this.shapeType = null; // What is custom shape type: circle, rectangle, line, free line, text
 	this.baseShapeType = null; // The foundation base (ol.geom.?) shape type
+	this.manipulationConfig = {}; // Stores configuration of Manipulation Behavior/Handlers per shape type
 
-	/** values for application specific needs **/
+	this.manipulationConfig.showSelectBox = true;
+	this.manipulationConfig.showResizeHandles = true;
+	this.manipulationConfig.showRotateHandle = true;
+
+	/** values for application specific needs, subject to be stored and retrieved from services **/
 	// rotationDegrees = 0;  // To preserve rotation
 	// rotationCenter;		 // Current rotation center
 }
@@ -88,6 +93,19 @@ ol.shape.ShapeFeature.prototype.createNewSketchFeature_ = goog.nullFunction;
  * @type {[type]}
  */
 ol.shape.ShapeFeature.prototype.drawingCompleted = goog.nullFunction;
+
+/**
+ * Returns the array of manipulation handles that should be displayed by manipulation managers
+ * @type {Array <ol.Feature>}
+ */
+ol.shape.ShapeFeature.prototype.getManipulationHandles = function() {
+	return [];
+}
+
+/**
+ * defines the handlers when manipulation handles are dragged
+ */
+ol.shape.ShapeFeature.prototype.manipulaitonHandleDragged = goog.nullFunction;
 
 
 /***** Polygon Arrow Shape *****/
@@ -155,6 +173,141 @@ ol.shape.LineArrow = function(opt_geometryOrProperties) {
 
 	this.shapeType = ol.shape.ShapeType.LINEARROW;
 	this.baseShapeType = ol.geom.LineString;
+
+	this.manipulationConfig.showSelectBox = true;
+	this.manipulationConfig.showResizeHandles = false;
+	this.manipulationConfig.showRotateHandle = false;
+
+	this.startX_ = null;
+	this.startY_ = null;
+	this.endX_ = null;
+	this.endY_ = null;
+	this.earsAngleOffset_ = 0;
+	this.earsLength_ = 10;
+
+
+	this.tipHandleStyle_ = new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: 3,
+            fill: new ol.style.Fill({
+                color: '#fff'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#000',
+                width: 1
+            })
+        })
+    });
+
+    this.earHandleStyle_ = new ol.style.Style({
+        image: new ol.style.Circle({
+            radius: 3,
+            fill: new ol.style.Fill({
+                color: '#ffff00'
+            }),
+            stroke: new ol.style.Stroke({
+                color: '#000',
+                width: 1
+            })
+        })
+    });
+
+	// Instance methods
+	this.getManipulationHandles = function() {
+		var shapeCoordinates = this.getGeometry().getCoordinates(),
+			tailCoordinate = shapeCoordinates[0],
+			tipCoordinate = shapeCoordinates[1],
+			leftEarCoordinate = shapeCoordinates[2],
+			rightEarCoordinate = shapeCoordinates[4];
+		
+		// this.tipHandle_
+		this.createOrUpdateManipulationHanlde_(this.tipHandle_, "TipHandle", tipCoordinate, "nwse-resize", true);
+
+		// this.tailHandle_
+		this.createOrUpdateManipulationHanlde_(this.tailHandle_, "TailHandle", tailCoordinate, "nesw-resize", true);
+
+		// this.leftEarHandle_
+		this.createOrUpdateManipulationHanlde_(this.leftEarHandle_, "LeftEarHandle", leftEarCoordinate, "ns-resize", false);
+
+		// this.rightEarHandle_
+		this.createOrUpdateManipulationHanlde_(this.rightEarHandle_, "RightEarHandle", rightEarCoordinate, "ns-resize", false);
+
+		return [this.tipHandle_, this.tailHandle_, this.leftEarHandle_, this.rightEarHandle_];
+	}
+
+	this.createOrUpdateManipulationHanlde_ = function(handleFeature, type, coordinate, cursorStyle, isIncrementalChange) {
+		if(!handleFeature) {
+			var handlePointGeometry = new ol.geom.Point(coordinate);
+			handleFeature = new ol.Feature({geometry: handlePointGeometry});
+
+			switch(type) {
+				case "TipHandle":
+					this.tipHandle_ = handleFeature;
+					this.tipHandle_.setStyle(this.tipHandleStyle_);
+					this.tipHandle_.shapeHandleType_ = "TipHandle";
+				break;
+
+				case "TailHandle":
+					this.tailHandle_ = handleFeature;
+					this.tailHandle_.setStyle(this.tipHandleStyle_);
+					this.tailHandle_.shapeHandleType_ = "TailHandle";
+				break;
+
+				case "LeftEarHandle":
+					this.leftEarHandle_ = handleFeature;
+					this.leftEarHandle_.setStyle(this.earHandleStyle_);
+					this.leftEarHandle_.shapeHandleType_ = "LeftEarHandle";
+				break;
+
+				case "RightEarHandle":
+					this.rightEarHandle_ = handleFeature;
+					this.rightEarHandle_.setStyle(this.earHandleStyle_);
+					this.rightEarHandle_.shapeHandleType_ = "RightEarHandle";
+				break;
+			}
+
+			handleFeature.isHandleFeature = true;
+			handleFeature.manipulatingFeature_ = this;
+			handleFeature.handleType = "ShapeSpecific";
+			handleFeature.cursorStyle = cursorStyle;
+			handleFeature.isIncrementalChange = isIncrementalChange;
+		} else {
+			handleFeature.getGeometry().setCoordinates(coordinate);
+		}
+
+		return handleFeature;
+	}
+
+	this.manipulaitonHandleDragged = function(map, handle, fromPx, toPx, mapBrowserEvent) {
+		switch(handle.shapeHandleType_) {
+			case "TipHandle":
+				var endX = mapBrowserEvent.coordinate[0],
+					endY = mapBrowserEvent.coordinate[1],
+					angleDegrees = goog.math.angle(this.startX_, this.startY_, endX, endY) - 90;
+				this.manipulateShape_(this.startX_, this.startY_, endX, endY, angleDegrees, this.earsLength_);
+				this.endX_ = endX;
+				this.endY_ = endY;
+			break;
+
+			case "TailHandle":
+				var startX = mapBrowserEvent.coordinate[0],
+					startY = mapBrowserEvent.coordinate[1],
+					angleDegrees = goog.math.angle(startX, startY, this.endX_, this.endY_) - 90;			
+				this.manipulateShape_(startX, startY, this.endX_, this.endY_, angleDegrees, this.earsLength_);
+				this.startX_ = startX;
+				this.startY_ = startY;
+			break;
+
+			case "RightEarHandle":
+			case "LeftEarHandle":
+				var distance = Math.sqrt(ol.coordinate.squaredDistance([this.endX_, this.endY_], mapBrowserEvent.coordinate)),
+					angleDegrees = goog.math.angle(this.startX_, this.startY_, this.endX_, this.endY_) - 90;
+
+				this.earsLength_ = distance;
+				this.manipulateShape_(this.startX_, this.startY_, this.endX_, this.endY_, angleDegrees, this.earsLength_);
+			break;
+		}
+	}
 }
 goog.inherits(ol.shape.LineArrow, ol.shape.ShapeFeature);
 
@@ -168,25 +321,9 @@ ol.shape.LineArrow.prototype.getUpdatedSketchFeatureCoordinates_ = function(coor
         startY = coordinates[0][0][1],
         endX = coordinates[0][coordinates[0].length-1][0],
         endY = coordinates[0][coordinates[0].length-1][1],
-        mathEndPoint = new goog.math.Coordinate(endX, endY),
-        dx = startX - endX,
-        dy = startY - endY,
-        distance = Math.sqrt(dx * dx + dy * dy) || 0,
         angleDegrees = goog.math.angle(startX, startY, endX, endY) - 90;
 
-    var arrowTipCoords = [[endX - 10, endY - 10], [endX, endY], [endX + 10, endY - 10], [endX, endY]];
-
-    arrowTipCoords = arrowTipCoords.map(function(coordinate) {
-        var mathCoordinate = new goog.math.Coordinate(coordinate[0], coordinate[1]);
-        mathCoordinate.rotateDegrees(angleDegrees, mathEndPoint);
-        return [mathCoordinate.x, mathCoordinate.y];
-    });
-
-    var shapePolygonCoordinates = [ [startX, startY], [endX, endY] ];
-
-    shapePolygonCoordinates = shapePolygonCoordinates.concat(arrowTipCoords);
-
-    return shapePolygonCoordinates;
+    return this.getFormedShapeCoordinates_(startX, startY, endX, endY, angleDegrees, 10);
 }
 
 ol.shape.LineArrow.prototype.getSketchPoint_ = function(coordinate) {
@@ -197,15 +334,54 @@ ol.shape.LineArrow.prototype.createNewSketchFeature_ = function() {
 	return new ol.shape.LineArrow();
 }
 
-ol.shape.LineArrow.prototype.drawingCompleted = function(createdFeatures, coordinates) {
+ol.shape.LineArrow.prototype.drawingCompleted = function(createdFeature, coordinates) {
 	var startX = coordinates[0][0][0],
         startY = coordinates[0][0][1],
         endX = coordinates[0][coordinates[0].length-1][0],
-        endY = coordinates[0][coordinates[0].length-1][1],
-        angleDegrees = goog.math.angle(startX, startY, endX, endY);
+        endY = coordinates[0][coordinates[0].length-1][1];
+    
+    this.updateFeatureAngle_(startX, startY, endX, endY, createdFeature);
+
+    this.startX_ = startX;
+    this.startY_ = startY;
+    this.endX_ = endX;
+    this.endY_ = endY;
+    this.earsAngleOffset_ = 0;
+    this.earsLength_ = 10;
+}
+
+ol.shape.LineArrow.prototype.getFormedShapeCoordinates_ = function(startX, startY, endX, endY, angleDegrees, earsLength) {
+	if(!earsLength) {
+		earsLength = 10;
+	}
 	
-	createdFeatures.set('rotationDegrees', angleDegrees);
-	createdFeatures.set('rotationCenter', [startX, startY]);
+	var mathEndPoint = new goog.math.Coordinate(endX, endY),
+		arrowTipCoords = [[endX - earsLength, endY - earsLength], [endX, endY], [endX + earsLength, endY - earsLength], [endX, endY]];
+
+    arrowTipCoords = arrowTipCoords.map(function(coordinate) {
+        var mathCoordinate = new goog.math.Coordinate(coordinate[0], coordinate[1]);
+        mathCoordinate.rotateDegrees(angleDegrees, mathEndPoint);
+        return [mathCoordinate.x, mathCoordinate.y];
+    });
+
+    var shapeCoordinates = [ [startX, startY], [endX, endY] ];
+
+    shapeCoordinates = shapeCoordinates.concat(arrowTipCoords);
+
+    return shapeCoordinates;
+}
+
+ol.shape.LineArrow.prototype.updateFeatureAngle_ = function(startX, startY, endX, endY, feature) {
+	var feature = feature || this,
+		angleDegrees = goog.math.angle(startX, startY, endX, endY);
+	
+	feature.set('rotationDegrees', angleDegrees);
+	feature.set('rotationCenter', [startX, startY]);
+}
+
+ol.shape.LineArrow.prototype.manipulateShape_ = function(startX, startY, endX, endY, angleDegreesOffset, earsLength) {
+	this.getGeometry().setCoordinates(this.getFormedShapeCoordinates_(startX, startY, endX, endY, angleDegreesOffset, earsLength));
+	this.updateFeatureAngle_(startX, startY, endX, endY, this);
 }
 
 
