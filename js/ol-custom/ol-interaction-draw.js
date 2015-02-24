@@ -363,7 +363,7 @@ ol.interaction.DrawWithShapes = function(options) {
         	if (goog.isDef(this.shapeType_) && !goog.isNull(this.shapeType_)) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.Polygon, "ol-custom/ol-interaction.draw.js #148");
                 coordinates = [this.sketchPolygonCoords_[0][0], coordinate];
-                this.sketchPolygonCoords_ = this.shapeDrawingClass_.prototype.getUpdatedSketchFeatureCoordinates_([coordinates]); // this.shapeManager_.getSketchFeatureCoordinates([coordinates]);
+                this.sketchPolygonCoords_ = this.shapeDrawingClass_.prototype.getUpdatedSketchFeatureCoordinates_([coordinates], /*Previous Coordinates*/this.sketchPolygonCoords_); // this.shapeManager_.getSketchFeatureCoordinates([coordinates]);
             } else if (this.mode_ === ol.interaction.DrawMode.LINE_STRING) {
                 goog.asserts.assertInstanceof(geometry, ol.geom.LineString, "ol-custom/ol-interaction.draw.js #149");
                 coordinates = geometry.getCoordinates();

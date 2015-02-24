@@ -487,6 +487,14 @@ define([
                 this.drawInteraction.activateShapeDrawingOnLayer("LineArrow", this.activeLayer);
             }
 
+            this.activateRectangleDrawing = function() {
+                this.drawInteraction.activateShapeDrawingOnLayer("Rectangle", this.activeLayer);
+            }
+
+            this.activateFreeHandLineDrawing = function() {
+                this.drawInteraction.activateShapeDrawingOnLayer("FreeHandLine", this.activeLayer);
+            }
+
             this.activatePolygonDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
             }

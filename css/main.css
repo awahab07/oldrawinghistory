@@ -63,6 +63,14 @@ clear:both;
     background-image: url("../js/demo/widget/images/icon-line-arrow.gif");
 }
 
+.drawRectangleButton {
+    background-image: url("../js/demo/widget/images/icon-rectangle.gif");
+}
+
+.drawFreeHandLineButton {
+    background-image: url("../js/demo/widget/images/icon-pencil.png");
+}
+
 .zoomToExtentButton {
     background-image: url("../js/demo/widget/images/icon-extent.png");
 }

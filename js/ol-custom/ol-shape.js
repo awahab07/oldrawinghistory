@@ -21,7 +21,9 @@ goog.require('ol.Feature');
  */
 ol.shape.ShapeType = {
     ARROW: 'Arrow',
-    LINEARROW: 'LineArrow'
+    LINEARROW: 'LineArrow',
+    RECTANGLE: 'Rectangle',
+    FREEHANDLINE: 'FreeHandLine'
 };
 
 /**
@@ -29,7 +31,9 @@ ol.shape.ShapeType = {
  */
 ol.shape.ShapeBaseGeomTypes = {
 	ARROW: 'Polygon',
-    LINEARROW: 'LineString'
+    LINEARROW: 'LineString',
+    RECTANGLE: 'Polygon',
+    FREEHANDLINE: 'LineString'
 };
 
 /**
@@ -156,15 +160,6 @@ ol.shape.Arrow.prototype.getSketchPoint_ = function(coordinate) {
 ol.shape.Arrow.prototype.createNewSketchFeature_ = function() {
 	return new ol.shape.Arrow();
 }
-
-
-ol.shape.LineArrow = function(opt_geometryOrProperties) {
-	goog.base(this);
-
-	this.shapeType = ol.shape.ShapeType.LINEARROW;
-	this.baseShapeType = ol.geom.LineString;
-}
-goog.inherits(ol.shape.LineArrow, ol.shape.ShapeFeature);
 
 
 /***** Line Arrow Shape *****/
@@ -385,10 +380,96 @@ ol.shape.LineArrow.prototype.manipulateShape_ = function(startX, startY, endX, e
 }
 
 
+
+/***** Polygon Rectangle Shape *****/
+ol.shape.Rectangle = function(opt_geometryOrProperties) {
+	goog.base(this);
+
+	this.shapeType = ol.shape.ShapeType.RECTANGLE;
+	this.baseShapeType = ol.geom.Polygon;
+}
+goog.inherits(ol.shape.Rectangle, ol.shape.ShapeFeature);
+
+ol.shape.Rectangle.prototype.createSketchFeatureGeometry_ = function(coordinates) {
+	return new ol.geom.Polygon(this.getUpdatedSketchFeatureCoordinates_(coordinates));
+}
+
+ol.shape.Rectangle.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
+	goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
+    var startX = coordinates[0][0][0],
+        startY = coordinates[0][0][1],
+        endX = coordinates[0][coordinates[0].length-1][0],
+        endY = coordinates[0][coordinates[0].length-1][1];
+
+    var shapePolygonCoordinates = [[
+        [startX, startY],
+        [endX, startY],
+        [endX, endY],
+        [startX, endY],
+        [startX, startY]
+    ]];
+
+    return shapePolygonCoordinates;
+}
+
+ol.shape.Rectangle.prototype.getSketchPoint_ = function(coordinate) {
+	return new ol.Feature(new ol.geom.Point(coordinate))
+}
+
+ol.shape.Rectangle.prototype.createNewSketchFeature_ = function() {
+	return new ol.shape.Rectangle();
+}
+
+
+/***** Free Hand Line Shape *****/
+ol.shape.FreeHandLine = function(opt_geometryOrProperties) {
+	goog.base(this);
+
+	this.shapeType = ol.shape.ShapeType.RECTANGLE;
+	this.baseShapeType = ol.geom.Polygon;
+
+	this.previousDrawingCoordinates_ = null; // used where a track of old drawing geometry is necessary
+}
+goog.inherits(ol.shape.FreeHandLine, ol.shape.ShapeFeature);
+
+ol.shape.FreeHandLine.prototype.createSketchFeatureGeometry_ = function(coordinates) {
+	return new ol.geom.LineString(this.getUpdatedSketchFeatureCoordinates_(coordinates));
+}
+
+ol.shape.FreeHandLine.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
+	goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
+    var startX = coordinates[0][0][0],
+        startY = coordinates[0][0][1],
+        endX = coordinates[0][coordinates[0].length-1][0],
+        endY = coordinates[0][coordinates[0].length-1][1];
+
+    var shapePolygonCoordinates = [[
+        [startX, startY],
+        [endX, startY],
+        [endX, endY],
+        [startX, endY],
+        [startX, startY]
+    ]];
+
+    return shapePolygonCoordinates;
+}
+
+ol.shape.FreeHandLine.prototype.getSketchPoint_ = function(coordinate) {
+	return new ol.Feature(new ol.geom.Point(coordinate))
+}
+
+ol.shape.FreeHandLine.prototype.createNewSketchFeature_ = function() {
+	this.previousDrawingCoordinates_  = null;
+	return new ol.shape.FreeHandLine();
+}
+
+
 /**
  * ShapeType implementation classes enum
  */
 ol.shape.ShapeClass = {
     ARROW: ol.shape.Arrow,
-    LINEARROW: ol.shape.LineArrow
+    LINEARROW: ol.shape.LineArrow,
+    RECTANGLE: ol.shape.Rectangle,
+    FREEHANDLINE: ol.shape.FreeHandLine
 };

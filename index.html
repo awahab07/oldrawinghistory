@@ -61,6 +61,8 @@
                                 drawPolygonButton = registry.byId("mapPolygonDrawButtonId"),
                                 drawArrowButton = registry.byId("mapArrowDrawButtonId"),
                                 drawLineArrowButton = registry.byId("mapLineArrowDrawButtonId"),
+                                drawRectangleButton = registry.byId("mapRectangleButtonId"),
+                                drawFreeHandLineButton = registry.byId("mapFreeHandLineButtonId"),
                                 zoomToExtentButton = registry.byId("zoomToExtentButtonId"),
                                 paperWidthNumberBox = registry.byId("paperWidthNumberBoxId"),
                                 paperHeightNumberBox = registry.byId("paperHeightNumberBoxId"),
@@ -110,6 +112,10 @@
                             zoomToExtentButton.on('click', lang.hitch(mapWidget, 'zoomToDocumentExtent'));
 
                             drawLineArrowButton.on('click', lang.hitch(mapWidget, 'activateLineArrowDrawing'));
+
+                            drawRectangleButton.on('click', lang.hitch(mapWidget, 'activateRectangleDrawing'));
+
+                            drawFreeHandLineButton.on('click', lang.hitch(mapWidget, 'activateFreeHandLineDrawing'));
                             
                             paperWidthNumberBox.on('change', lang.hitch(mapWidget, 'paperWidthChanged'));
 
@@ -180,7 +186,13 @@
 
                                 <div id="mapLineArrowDrawButtonId" data-dojo-attach-point="lineArrowDrawButton" data-dojo-type="dijit/form/Button"
                                      data-dojo-props="iconClass:'dijitEditorIcon drawLineArrowButton', showLabel:false">Draw Line Arrow</div>
+                                
+                                <div id="mapRectangleButtonId" data-dojo-attach-point="drawRectangleButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon drawRectangleButton', showLabel:false">Draw Rectangle</div>
 
+                                <div id="mapFreeHandLineButtonId" data-dojo-attach-point="drawFreeHandLineButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon drawFreeHandLineButton', showLabel:false">Draw Free Hand</div>
+                                
                                 <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon paperButton', showLabel:false">
                                     <span>Paper Size</span>
                                     <div data-dojo-type="dijit/TooltipDialog">
