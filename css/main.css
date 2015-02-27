@@ -71,6 +71,10 @@ clear:both;
     background-image: url("../js/demo/widget/images/icon-pencil.png");
 }
 
+.drawCircleButton {
+    background-image: url("../js/demo/widget/images/icon-circle.png");
+}
+
 .zoomToExtentButton {
     background-image: url("../js/demo/widget/images/icon-extent.png");
 }

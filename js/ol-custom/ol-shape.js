@@ -14,8 +14,8 @@ goog.provide('ol.shape.ShapeFeature');
 goog.provide('ol.shape.Arrow');
 goog.provide('ol.shape.LineArrow');
 
+goog.require('ol.geom.DrawCircle');
 goog.require('ol.Feature');
-
 /**
  * ShapeType string enums
  */
@@ -23,7 +23,8 @@ ol.shape.ShapeType = {
     ARROW: 'Arrow',
     LINEARROW: 'LineArrow',
     RECTANGLE: 'Rectangle',
-    FREEHANDLINE: 'FreeHandLine'
+    FREEHANDLINE: 'FreeHandLine',
+    CIRCLE: 'Circle'
 };
 
 /**
@@ -33,7 +34,8 @@ ol.shape.ShapeBaseGeomTypes = {
 	ARROW: 'Polygon',
     LINEARROW: 'LineString',
     RECTANGLE: 'Polygon',
-    FREEHANDLINE: 'LineString'
+    FREEHANDLINE: 'LineString',
+    CIRCLE: 'DrawCircle'
 };
 
 /**
@@ -425,10 +427,10 @@ ol.shape.Rectangle.prototype.createNewSketchFeature_ = function() {
 ol.shape.FreeHandLine = function(opt_geometryOrProperties) {
 	goog.base(this);
 
-	this.shapeType = ol.shape.ShapeType.RECTANGLE;
-	this.baseShapeType = ol.geom.Polygon;
+	this.shapeType = ol.shape.ShapeType.FREEHANDLINE;
+	this.baseShapeType = ol.geom.LineString;
 
-	this.previousDrawingCoordinates_ = null; // used where a track of old drawing geometry is necessary
+	this.previousDrawingCoordinates_ = null; // used where a track of old drawing geometry coordinates is necessary
 }
 goog.inherits(ol.shape.FreeHandLine, ol.shape.ShapeFeature);
 
@@ -442,16 +444,14 @@ ol.shape.FreeHandLine.prototype.getUpdatedSketchFeatureCoordinates_ = function(c
         startY = coordinates[0][0][1],
         endX = coordinates[0][coordinates[0].length-1][0],
         endY = coordinates[0][coordinates[0].length-1][1];
+    
+    if(!this.previousDrawingCoordinates_) {
+    	this.previousDrawingCoordinates_ = [ [startX, startY], [endX, endY] ];
+    } else {
+    	this.previousDrawingCoordinates_.push([endX, endY]);
+    }
 
-    var shapePolygonCoordinates = [[
-        [startX, startY],
-        [endX, startY],
-        [endX, endY],
-        [startX, endY],
-        [startX, startY]
-    ]];
-
-    return shapePolygonCoordinates;
+    return this.previousDrawingCoordinates_;
 }
 
 ol.shape.FreeHandLine.prototype.getSketchPoint_ = function(coordinate) {
@@ -464,6 +464,46 @@ ol.shape.FreeHandLine.prototype.createNewSketchFeature_ = function() {
 }
 
 
+/***** Cricle Shape *****/
+ol.shape.Circle = function(opt_geometryOrProperties) {
+	goog.base(this);
+
+	this.shapeType = ol.shape.ShapeType.CIRCLE;
+	this.baseShapeType = ol.geom.Cricle;
+}
+goog.inherits(ol.shape.Circle, ol.shape.ShapeFeature);
+
+ol.shape.Circle.prototype.createSketchFeatureGeometry_ = function(coordinates) {
+	return new ol.geom.DrawCircle(coordinates);
+}
+
+ol.shape.Circle.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
+	goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
+    var startX = coordinates[0][0][0],
+        startY = coordinates[0][0][1],
+        endX = coordinates[0][coordinates[0].length-1][0],
+        endY = coordinates[0][coordinates[0].length-1][1];
+    
+    // To make the startX,startY the topLeft of the circle, rather than the center, 
+    // find the midpoint of line (startX, startY) - (endX, endY)
+    
+    var dragLineMidpoint = [ (startX + endX)/2, (startY + endY)/2 ],
+    	dragLineLength = Math.sqrt( ol.coordinate.squaredDistance([startX, startY], [endX, endY]) ),
+    	circleRadius = dragLineLength / 2;
+
+   	// Returning array [circleCenterCoordinate, radius];
+    return [dragLineMidpoint, circleRadius];
+}
+
+ol.shape.Circle.prototype.getSketchPoint_ = function(coordinate) {
+	return new ol.Feature(new ol.geom.Point(coordinate))
+}
+
+ol.shape.Circle.prototype.createNewSketchFeature_ = function() {
+	return new ol.shape.Circle();
+}
+
+
 /**
  * ShapeType implementation classes enum
  */
@@ -471,5 +511,6 @@ ol.shape.ShapeClass = {
     ARROW: ol.shape.Arrow,
     LINEARROW: ol.shape.LineArrow,
     RECTANGLE: ol.shape.Rectangle,
-    FREEHANDLINE: ol.shape.FreeHandLine
+    FREEHANDLINE: ol.shape.FreeHandLine,
+    CIRCLE: ol.shape.Circle
 };

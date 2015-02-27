@@ -495,6 +495,10 @@ define([
                 this.drawInteraction.activateShapeDrawingOnLayer("FreeHandLine", this.activeLayer);
             }
 
+            this.activateCircleDrawing = function() {
+                this.drawInteraction.activateShapeDrawingOnLayer("Circle", this.activeLayer);
+            }
+
             this.activatePolygonDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
             }
@@ -790,7 +794,7 @@ define([
                 projection: this.pixelProjection,
                 /*minZoom: 0,
                  maxZoom: 7,*/
-                //extent: [250, 300, 250, 300],
+                extent: this.baseImageLayer.documentExtent,
                 center: this.imageCenter,
                 resolution: 1,
                 resolutions: this.buildViewResolutions()
