@@ -402,8 +402,13 @@ ol.layer.Manipulation = function(opt_options) {
         }
     }
 
-    this.shapeDragged_ = function(map, handleFeature, fromPx, toPx) {        
-        this.translateFeature_(map, handleFeature, this.dragFromPx_, toPx);
+    this.shapeDragged_ = function(map, handleFeature, fromPx, toPx) {
+        // Check if shapeFeature itself implements translation
+        if(this.shape_.manipulationConfig && this.shape_.manipulationConfig.handlesTranslation) {
+            this.shape_.translate(map, fromPx, toPx);
+        } else {
+            this.translateFeature_(map, handleFeature, this.dragFromPx_, toPx);
+        }
     }
 
     this.baseLayerResizeHandleDragged_ = function(map, handleOrShapeFeature, fromPx, toPx) {

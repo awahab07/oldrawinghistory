@@ -14,7 +14,7 @@ goog.provide('ol.shape.ShapeFeature');
 goog.provide('ol.shape.Arrow');
 goog.provide('ol.shape.LineArrow');
 
-goog.require('ol.geom.DrawCircle');
+goog.require('ol.geom.Ellipse');
 goog.require('ol.Feature');
 /**
  * ShapeType string enums
@@ -24,7 +24,7 @@ ol.shape.ShapeType = {
     LINEARROW: 'LineArrow',
     RECTANGLE: 'Rectangle',
     FREEHANDLINE: 'FreeHandLine',
-    CIRCLE: 'Circle'
+    ELLIPSE: 'Ellipse'
 };
 
 /**
@@ -35,7 +35,7 @@ ol.shape.ShapeBaseGeomTypes = {
     LINEARROW: 'LineString',
     RECTANGLE: 'Polygon',
     FREEHANDLINE: 'LineString',
-    CIRCLE: 'DrawCircle'
+    ELLIPSE: 'Ellipse'
 };
 
 /**
@@ -59,6 +59,8 @@ ol.shape.ShapeFeature = function(opt_geometryOrProperties) {
 	this.manipulationConfig.showSelectBox = true;
 	this.manipulationConfig.showResizeHandles = true;
 	this.manipulationConfig.showRotateHandle = true;
+
+	this.manipulationConfig.handlesTranslation = false;
 
 	/** values for application specific needs, subject to be stored and retrieved from services **/
 	// rotationDegrees = 0;  // To preserve rotation
@@ -96,9 +98,13 @@ ol.shape.ShapeFeature.prototype.createNewSketchFeature_ = goog.nullFunction;
 
 /**
  * Can be called by drawing interaction to call necessary functionality when a new shape drawing is completed
- * @type {[type]}
  */
 ol.shape.ShapeFeature.prototype.drawingCompleted = goog.nullFunction;
+
+/**
+ * For shapeFeatures who provide their own translate functionality and can't rely on ol.layer.manipulation manipulations
+ */
+ol.shape.ShapeFeature.prototype.getTranslatedCoordinates = goog.nullFunction;
 
 /**
  * Returns the array of manipulation handles that should be displayed by manipulation managers
@@ -464,20 +470,23 @@ ol.shape.FreeHandLine.prototype.createNewSketchFeature_ = function() {
 }
 
 
-/***** Cricle Shape *****/
-ol.shape.Circle = function(opt_geometryOrProperties) {
+/***** Ellipse Shape *****/
+ol.shape.Ellipse = function(opt_geometryOrProperties) {
 	goog.base(this);
 
-	this.shapeType = ol.shape.ShapeType.CIRCLE;
-	this.baseShapeType = ol.geom.Cricle;
-}
-goog.inherits(ol.shape.Circle, ol.shape.ShapeFeature);
+	this.shapeType = ol.shape.ShapeType.ELLIPSE;
+	this.baseShapeType = ol.geom.ELLIPSE;
 
-ol.shape.Circle.prototype.createSketchFeatureGeometry_ = function(coordinates) {
-	return new ol.geom.DrawCircle(coordinates);
+	this.manipulationConfig.handlesTranslation = true;
+}
+goog.inherits(ol.shape.Ellipse, ol.shape.ShapeFeature);
+
+ol.shape.Ellipse.prototype.createSketchFeatureGeometry_ = function(coordinates) {
+	var updatedCoords = this.getUpdatedSketchFeatureCoordinates_(coordinates);	
+	return new ol.geom.Ellipse(updatedCoords[0], updatedCoords[1], updatedCoords[2]);
 }
 
-ol.shape.Circle.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
+ol.shape.Ellipse.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordinates) {
 	goog.asserts.assert(coordinates[0].length >= 2, "Not enough coordinates to draw ARROW shape");
     var startX = coordinates[0][0][0],
         startY = coordinates[0][0][1],
@@ -488,21 +497,31 @@ ol.shape.Circle.prototype.getUpdatedSketchFeatureCoordinates_ = function(coordin
     // find the midpoint of line (startX, startY) - (endX, endY)
     
     var dragLineMidpoint = [ (startX + endX)/2, (startY + endY)/2 ],
-    	dragLineLength = Math.sqrt( ol.coordinate.squaredDistance([startX, startY], [endX, endY]) ),
-    	circleRadius = dragLineLength / 2;
+    	radiusX = Math.abs(startX - endX) / 2,
+    	radiusY = Math.abs(startY - endY) / 2;
 
    	// Returning array [circleCenterCoordinate, radius];
-    return [dragLineMidpoint, circleRadius];
+    return [dragLineMidpoint, radiusX, radiusY];
 }
 
-ol.shape.Circle.prototype.getSketchPoint_ = function(coordinate) {
+ol.shape.Ellipse.prototype.getSketchPoint_ = function(coordinate) {
 	return new ol.Feature(new ol.geom.Point(coordinate))
 }
 
-ol.shape.Circle.prototype.createNewSketchFeature_ = function() {
-	return new ol.shape.Circle();
+ol.shape.Ellipse.prototype.createNewSketchFeature_ = function() {
+	return new ol.shape.Ellipse();
 }
 
+ol.shape.Ellipse.prototype.translate = function(map, fromPx, toPx) {
+	var fromCoordiante = map.getCoordinateFromPixel(fromPx),
+		toCoordinate = map.getCoordinateFromPixel(toPx),
+		differenceCoordinate = [toCoordinate[0] - fromCoordiante[0], toCoordinate[1] - fromCoordiante[1]],
+		center = this.getGeometry().getCenter(),
+		translatedCenter = [center[0] + differenceCoordinate[0], center[1] + differenceCoordinate[1]];
+	
+	this.getGeometry().setCenter(translatedCenter);
+	return translatedCenter;
+}
 
 /**
  * ShapeType implementation classes enum
@@ -512,5 +531,5 @@ ol.shape.ShapeClass = {
     LINEARROW: ol.shape.LineArrow,
     RECTANGLE: ol.shape.Rectangle,
     FREEHANDLINE: ol.shape.FreeHandLine,
-    CIRCLE: ol.shape.Circle
+    ELLIPSE: ol.shape.Ellipse
 };

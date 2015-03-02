@@ -496,7 +496,7 @@ define([
             }
 
             this.activateCircleDrawing = function() {
-                this.drawInteraction.activateShapeDrawingOnLayer("Circle", this.activeLayer);
+                this.drawInteraction.activateShapeDrawingOnLayer("Ellipse", this.activeLayer);
             }
 
             this.activatePolygonDrawing = function() {
