@@ -3,7 +3,7 @@
  * Script to extend and override ol.interaction.Draw to incorporate drawing of custom shapes like Arrow, Star etc.
  */
 
-goog.provide('ol.interaction.DrawModeWithShapes');
+goog.provide('ol.interaction.DrawWithShapes');
 
 goog.require('ol.shape.ShapeFeature');
 goog.require('ol.shape.ShapeType');
@@ -44,13 +44,23 @@ ol.interaction.DrawWithShapes = function(options) {
 
     this.shapeDrawingClass_ = null;
 
+    this.deactivateDrawing = function() {
+        this.shapeDrawingClass_ = null;
+        this.shapeType_ = null;
+        this.type_ = null;
+        this.layerToDrawOn_ = null;
+        this.setActive(false);
+    }
+
     this.activateShapeDrawingOnLayer = function(shapeType, drawingLayer) {
+        this.shapeType_ = null;
+        this.type_ = null;
+
         if(goog.isDef(ol.shape.ShapeType[shapeType.toUpperCase()])) {
             this.shapeType_ = ol.shape.ShapeType[shapeType.toUpperCase()];
             this.type_ = ol.shape.ShapeBaseGeomTypes[this.shapeType_];
             this.shapeDrawingClass_ = ol.shape.ShapeClass[this.shapeType_.toUpperCase()];
         } else {
-            this.shapeType_ = null;
             this.type_ = shapeType;
         }
 
@@ -146,7 +156,7 @@ ol.interaction.DrawWithShapes = function(options) {
                     pass = false;
                 } else {
                     // Deactivate the interaction when a down-up events are performed without a drag
-                    this.setActive(false);
+                    this.deactivateDrawing();
                     pass = true;
                 }
             }

@@ -477,6 +477,10 @@ ol.shape.Ellipse = function(opt_geometryOrProperties) {
 	this.shapeType = ol.shape.ShapeType.ELLIPSE;
 	this.baseShapeType = ol.geom.ELLIPSE;
 
+	// @TODO implement resize and rotation for Ellipse and remove the below lines
+	this.manipulationConfig.showResizeHandles = false;
+	this.manipulationConfig.showRotateHandle = false;
+
 	this.manipulationConfig.handlesTranslation = true;
 }
 goog.inherits(ol.shape.Ellipse, ol.shape.ShapeFeature);

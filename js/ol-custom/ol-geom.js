@@ -10,7 +10,7 @@ goog.provide('ol.geom.Ellipse');
 
 // Meeting the formalities for a new geometry to be drawable by vector context
 // 1 - Registering Oval Geometry Type
-ol.geom.GeometryType.ELLIPSE = 'Ellipse'
+ol.geom.GeometryType.ELLIPSE = 'Ellipse';
 
 // 2
 ol.render.IVectorContext.prototype.drawEllipseGeometry =
