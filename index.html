@@ -17,6 +17,12 @@
         <script teyp="text/javascript" src="js/ol-custom/ol-interaction-draw.js"></script>
         <script teyp="text/javascript" src="js/ol-custom/ol-canvas-manipulatablelayer.js"></script>
 
+        <script teyp="text/javascript" src="js/ol-custom/goog-ui-idgenerator.js"></script>
+        <script teyp="text/javascript" src="js/ol-custom/goog-ui-component.js"></script>
+        <script teyp="text/javascript" src="js/ol-custom/goog-ui-resizable.js"></script>
+
+        <script type="text/javascript" src="js/ol-custom/carota-debug.js"></script>
+
         <!-- dojo 1.9 -->
         <script type="text/javascript">
 		    dojoConfig= {
@@ -65,6 +71,7 @@
                                 drawRectangleButton = registry.byId("mapRectangleButtonId"),
                                 drawFreeHandLineButton = registry.byId("mapFreeHandLineButtonId"),
                                 drawCircleButton = registry.byId("mapCircleButtonId"),
+                                drawTextButton = registry.byId("mapTextButtonId"),
                                 zoomToExtentButton = registry.byId("zoomToExtentButtonId"),
                                 paperWidthNumberBox = registry.byId("paperWidthNumberBoxId"),
                                 paperHeightNumberBox = registry.byId("paperHeightNumberBoxId"),
@@ -120,6 +127,8 @@
                             drawFreeHandLineButton.on('click', lang.hitch(mapWidget, 'activateFreeHandLineDrawing'));
 
                             drawCircleButton.on('click', lang.hitch(mapWidget, 'activateCircleDrawing'));
+
+                            drawTextButton.on('click', lang.hitch(mapWidget, 'activateTextDrawing'));
                             
                             paperWidthNumberBox.on('change', lang.hitch(mapWidget, 'paperWidthChanged'));
 
@@ -199,6 +208,9 @@
                                 
                                 <div id="mapCircleButtonId" data-dojo-attach-point="drawCircleButton" data-dojo-type="dijit/form/Button"
                                      data-dojo-props="iconClass:'dijitEditorIcon drawCircleButton', showLabel:false">Draw Circle</div>
+
+                                <div id="mapTextButtonId" data-dojo-attach-point="drawTextButton" data-dojo-type="dijit/form/Button"
+                                     data-dojo-props="iconClass:'dijitEditorIcon drawTextButton', showLabel:false">Draw Text</div>
 
                                 <div data-dojo-type="dijit/form/DropDownButton" data-dojo-props="iconClass:'dijitEditorIcon paperButton', showLabel:false">
                                     <span>Paper Size</span>

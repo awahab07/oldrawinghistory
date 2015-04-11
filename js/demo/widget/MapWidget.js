@@ -5,6 +5,7 @@ define([
     "dojo/_base/array",
     "dojo/on",
     "dojo/dom-style",
+    "dojo/dom-construct",
     "dojo/aspect",
     "dijit/registry",
     "dijit/Toolbar",
@@ -14,7 +15,7 @@ define([
     "dijit/_TemplatedMixin",
     "dijit/_WidgetsInTemplateMixin",
     "dojo/text!./templates/MapWidget.html"
-], function(declare, baseFx, lang, arrayUtil, on, domStyle, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
+], function(declare, baseFx, lang, arrayUtil, on, domStyle, domConstruct, aspect, registry,  Toolbar, Button,  Memory, _WidgetBase, _TemplatedMixin, _WidgetsInTemplateMixin, template){
     return declare([_WidgetBase, _TemplatedMixin], {
  
         // Our template - important!
@@ -498,6 +499,35 @@ define([
             this.activateCircleDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Ellipse", this.activeLayer);
             }
+
+            this.activateTextDrawing = function() {
+                if(this.map) {
+                    this.map.once("click", function(event) {
+                        var editorElement = document.querySelector(".olTextEditor");
+                        var cEditor = carota.editor.create(editorElement);
+                        var carotaSpacerElement = document.querySelector(".carotaSpacer"),
+                            carotaCanvas = carotaSpacerElement.querySelector('canvas');
+                        
+                        carotaSpacerElement.style.width = '100px';
+                        carotaSpacerElement.style.height = '10px';
+                        carotaCanvas.focus();
+
+                        /*var editorResizable = new goog.ui.Resizable(carotaSpacerElement, {
+                          minWidth: 10,
+                          minHeight: 5
+                        });*/
+
+                        var editorOverlay = new ol.Overlay({
+                              position: event.coordinate,
+                              //positioning: 'center-center',
+                              element: editorElement,
+                              stopEvent: true
+                        });
+
+                        this.map.addOverlay(editorOverlay);
+                    }, this);
+                }
+            }            
 
             this.activatePolygonDrawing = function() {
                 this.drawInteraction.activateShapeDrawingOnLayer("Polygon", this.activeLayer);
