@@ -73,6 +73,12 @@ define([
 
         olResolution: 1,
 
+        constructor: function() {
+            this.inherited(arguments);
+
+            console.log("widget const is called.");
+        },
+
         postMixInProperties: function() {
             this.inherited(arguments);
 
