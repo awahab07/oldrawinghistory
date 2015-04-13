@@ -1,0 +1,50 @@
+<div>
+    <div class="clearfix">
+        <img class="mediaRecordThumb" src="" data-dojo-attach-point="mediaRecordThumbNode" />
+        <p class="existingRecordsMsg" data-dojo-attach-point="existingRecordsMsgNode"></p>
+    </div>
+    <p data-dojo-attach-point="mediaRenditionNumberNode"></p>
+    <div class="contentCol">
+        <div>
+            <input type="radio" data-dojo-type="dijit/form/RadioButton" name="annotationRecord" value="create"
+                   data-dojo-attach-point="createNewRadio"/>
+            <label data-dojo-attach-point="createNewLabelNode"></label>
+        </div>
+        <label class="selectLabel" data-dojo-attach-point="deptSelectLabelNode"></label>
+        <select class="deptSelect" data-dojo-attach-point="deptSelect" data-dojo-type="dijit/form/Select"></select>
+        <button class="galSys-smallBtn galSys-primaryBtnColor preferenceBtn" data-dojo-type="dijit/form/Button"
+                data-dojo-attach-point="preferencesBtn" type="button">
+        </button>
+        <div class="mediaRenditionNumber" data-dojo-attach-point="mediaRenditionNumber"
+             data-dojo-type="gscommon/flexViews/widgets/MediaRenditionNumber">
+        </div>
+        <div class="paperSettings clearfix">
+            <div class="paperSelectCol clearfix">
+                <label class="selectLabel" data-dojo-attach-point="paperSelectLabelNode"></label>
+                <select class="paperSelect" data-dojo-attach-point="paperSelect" data-dojo-type="dijit/form/Select">
+                </select>
+            </div>
+            <div class="orientationCol clearfix">
+                <div>
+                    <label class="orientationLabel" data-dojo-attach-point="orientationLabelNode"></label>
+                    <div>
+                        <input class="landscapeRadio" type="radio" data-dojo-type="dijit/form/RadioButton"
+                               name="orientation" value="landscape" data-dojo-attach-point="landscapeRadio"/>
+                        <label data-dojo-attach-point="landscapeRadioLabel">Landscape</label>
+                    </div>
+                    <div>
+                        <input type="radio" data-dojo-type="dijit/form/RadioButton" name="orientation" value="portrait"
+                               data-dojo-attach-point="portraitRadio"/>
+                        <label data-dojo-attach-point="portraitRadioLabel">Portrait</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div data-dojo-attach-point="openExistingCont">
+            <input type="radio" data-dojo-type="dijit/form/RadioButton" name="annotationRecord"
+                   data-dojo-attach-point="openExistingRadio" value="existing"/>
+            <label data-dojo-attach-point="openExistingLabelNode"></label>
+            <div data-dojo-attach-point="existingGridCont"></div>
+        </div>
+    </div>
+</div>

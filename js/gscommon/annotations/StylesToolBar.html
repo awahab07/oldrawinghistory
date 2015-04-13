@@ -1,0 +1,59 @@
+<div class="galSysStylesToolBar">
+    <div class="galSysStylesToolBarCol rightDivider">
+        <label data-dojo-attach-point="colorPickerLabelNode" class="colorPickerLabelNode"></label>
+        <button data-dojo-type="dijit/form/Button" data-dojo-attach-point="colorPickerBtn"
+                class="galSysColorPickerBtn galSysSwatchShadow transparentStyle" type="button">
+        </button>
+        <button data-dojo-type="dijit/form/Button" data-dojo-attach-point="strokePickerBtn"
+                class="galSysStrokePickerBtn transparentStyle" type="button">
+        </button>
+    </div>
+    <div class="galSysStylesToolBarCol rightDivider">
+        <label data-dojo-attach-point="lineStyleLabelNode"></label>
+        <select data-dojo-attach-point="lineWidthSelect" data-dojo-type="dijit/form/Select" class="lineWidthSelect"></select>
+        <div value="2" data-dojo-attach-point="lineStyleSelect" data-dojo-type="dijit/form/Select" class="strokeSelect">
+            <div value="1">
+                <div class="galSysSolidLineStyleOpt"></div>
+            </div>
+            <div value="2">
+                <div class="galSysDottedLineStyleOpt"></div>
+            </div>
+            <div value="3">
+                <div class="galSysDashedLineStyleOpt"></div>
+            </div>
+            <div value="4">
+                <div class="galSysDashDotStyleOpt">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="galSysStylesToolBarCol rightDivider">
+        <label data-dojo-attach-point="textPickerLabelNode"></label>
+        <select data-dojo-attach-point="textSelect" data-dojo-type="dijit/form/Select" class="textSelect"></select>
+        <select data-dojo-attach-point="textSizeSelect" data-dojo-type="dijit/form/Select" class="textSizeSelect"></select>
+        <button data-dojo-type="dijit/form/Button" data-dojo-attach-point="textFillPickerBtn"
+                class="galSysTextFillPickerBtn transparentStyle" type="button">
+        </button>
+    </div>
+    <div class="galSysStylesToolBarCol">
+        <label class="opacityLabel" data-dojo-attach-point="opacityLabelNode"></label>
+        <div data-dojo-attach-point="opacitySliderValue" class="opacitySliderValue"></div>
+        <div data-dojo-attach-point="opacitySliderCont" class="opacitySliderCont"></div>
+    </div>
+    <div class="galSysStylesToolBarCol">
+        <button data-dojo-type="dijit/form/Button" data-dojo-attach-point="saveBtn"
+                class="galSysSaveBtn galSys-mediumBtn galSys-primaryBtnColor" type="button"></button>
+        <div data-dojo-attach-point="exportAsBtn" data-dojo-type="dijit/form/ComboButton" class="galSys-mediumBtn galSys-secondaryBtnColor exportAsBtn">
+            <span data-dojo-attach-point="exportAsLabel"></span>
+            <div data-dojo-type="dijit/DropDownMenu">
+                <div data-dojo-attach-point="exportAsPNGBtn" data-dojo-type="dijit/MenuItem">PNG</div>
+                <div data-dojo-attach-point="exportAsJPGBtn" data-dojo-type="dijit/MenuItem">JPG</div>
+            </div>
+        </div>
+    </div>
+    <div class="galSysStylesToolBarCol">
+        <div class="zoomIcon fa fa-plus-circle"></div>
+        <div data-dojo-attach-point="zoomSliderValue" class="zoomSliderValue"></div>
+        <div data-dojo-attach-point="zoomSliderCont" class="zoomSliderCont"></div>
+    </div>
+</div>
